@@ -14,4 +14,7 @@ const validateRequest = (validations) => {
   };
 };
 
-module.exports = { validateRequest };
+module.exports = {
+  validateRequest,
+  validate: validateRequest
+};

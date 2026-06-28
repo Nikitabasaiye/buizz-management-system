@@ -34,6 +34,8 @@ const authenticate = async (req, res, next) => {
       email: user.email,
       role: user.role,
       isVerified: user.isVerified,
+      kycStatus: user.kycStatus,
+      bankVerificationStatus: user.bankVerificationStatus,
       organizationId: user.organizationId
     };
 

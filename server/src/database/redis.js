@@ -1,22 +1,22 @@
-const { createClient } = require('redis');
+const Redis = require('ioredis');
 const logger = require('../utils/logger');
 
 let redisClient;
 
 const connectRedis = async () => {
   try {
-    redisClient = createClient({
-      socket: {
-        host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT
-      },
+    redisClient = new Redis({
+      host: process.env.REDIS_HOST || '127.0.0.1',
+      port: Number(process.env.REDIS_PORT) || 6379,
       password: process.env.REDIS_PASSWORD || undefined
     });
 
     redisClient.on('error', (err) => logger.error('Redis Client Error', err));
     redisClient.on('connect', () => logger.info('Redis Client Connected'));
+    redisClient.on('ready', () => logger.info('Redis Client Ready'));
 
-    await redisClient.connect();
+    redisClient.setEx = (key, seconds, value) => redisClient.setex(key, seconds, value);
+    await redisClient.ping();
     
     return redisClient;
   } catch (error) {
@@ -33,4 +33,5 @@ const getRedisClient = () => {
 };
 
 module.exports = connectRedis;
+module.exports.connectRedis = connectRedis;
 module.exports.getRedisClient = getRedisClient;

@@ -1,10 +1,12 @@
 const express = require('express');
-const { authenticate, authorize } = require('../../middleware/auth');
-const { USER_ROLES } = require('../../constants');
+const { authenticate, requireAnyPermission } = require('../../middleware/rbac');
+const { PERMISSIONS } = require('../../config/permissions');
+const analyticsController = require('./analytics.controller');
 
 const router = express.Router();
 
-router.use(authenticate, authorize(USER_ROLES.ADMIN, USER_ROLES.ORGANIZER));
-router.get('/', (req, res) => res.json({ message: 'Analytics module' }));
+router.use(authenticate);
+router.get('/', requireAnyPermission(PERMISSIONS.ANALYTICS_READ, PERMISSIONS.ADMIN_ANALYTICS), analyticsController.getDashboard);
+router.get('/events/:eventId', requireAnyPermission(PERMISSIONS.ANALYTICS_READ, PERMISSIONS.ADMIN_ANALYTICS), analyticsController.getEventAnalytics);
 
 module.exports = router;

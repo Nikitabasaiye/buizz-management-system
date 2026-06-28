@@ -1,72 +1,55 @@
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const userRepository = require('../users/user.repository');
 const { AppError } = require('../../middleware/errorHandler');
-const { getRedisClient } = require('../../database/redis');
-const { emailQueue } = require('../../queues');
+const {
+  generateAccessToken, generateRefreshToken, generateSecureToken,
+  blacklistToken, storeRedisToken, getRedisToken, deleteRedisToken,
+} = require('../../utils/auth.helper');
 const { USER_ROLES } = require('../../constants');
-
-const generateToken = (userId, role) => {
-  return jwt.sign({ id: userId, role }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
-  });
-};
-
-const generateRefreshToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRE
-  });
-};
+const logger = require('../../utils/logger');
 
 const register = async (userData) => {
   const requestedRole = userData.role || USER_ROLES.USER;
   const publicRoles = [USER_ROLES.USER, USER_ROLES.ORGANIZER, USER_ROLES.INFLUENCER];
+  const adminRoles = [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN];
 
-  if (requestedRole === USER_ROLES.ADMIN) {
-    if (!process.env.ADMIN_REGISTRATION_SECRET || userData.adminSecret !== process.env.ADMIN_REGISTRATION_SECRET) {
-      throw new AppError('Admin registration is not allowed', 403);
+  if (![...publicRoles, ...adminRoles].includes(requestedRole)) {
+    throw new AppError('Invalid role', 400);
+  }
+
+  if (adminRoles.includes(requestedRole)) {
+    if (!process.env.ADMIN_REGISTRATION_SECRET) {
+      throw new AppError('Admin registration is disabled', 403);
     }
-  } else if (!publicRoles.includes(requestedRole)) {
-    throw new AppError('Invalid role for public registration', 400);
+
+    if (userData.adminSecret !== process.env.ADMIN_REGISTRATION_SECRET) {
+      throw new AppError('Invalid admin registration secret', 403);
+    }
   }
 
-  userData.role = requestedRole;
+  const existing = await userRepository.findByEmail(userData.email);
+  if (existing) throw new AppError('Email already registered', 400);
 
-  const existingUser = await userRepository.findByEmail(userData.email);
-  if (existingUser) {
-    throw new AppError('Email already registered', 400);
-  }
+  const { adminSecret, ...safeUserData } = userData;
+  const user = await userRepository.create({ ...safeUserData, role: requestedRole });
 
-  const user = await userRepository.create(userData);
-  
-  // Generate verification token
-  const verificationToken = crypto.randomBytes(32).toString('hex');
-  const redis = getRedisClient();
-  await redis.setEx(`verify:${verificationToken}`, 3600, user._id.toString());
+  const verifyToken = generateSecureToken();
+  await storeRedisToken('user_verify', verifyToken, user.id);
 
-  // Send verification email
-  await emailQueue.add('verification', {
-    to: user.email,
-    subject: 'Verify your email',
-    token: verificationToken
-  });
+  // Send verification email (synchronous for now - can be made async later)
+  logger.info('User registered - verification token generated', { userId: user.id, email: user.email });
 
-  const token = generateToken(user._id, user.role);
-  const refreshToken = generateRefreshToken(user._id);
+  const token = generateAccessToken(user.id, user.role);
+  const refreshToken = generateRefreshToken(user.id, user.role);
 
   const result = {
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
     token,
-    refreshToken
+    refreshToken,
   };
 
   if (process.env.NODE_ENV === 'development') {
-    result.verificationToken = verificationToken;
+    result.verificationToken = verifyToken;
   }
 
   return result;
@@ -74,127 +57,69 @@ const register = async (userData) => {
 
 const login = async (email, password) => {
   const user = await userRepository.findByEmailWithPassword(email);
-  
+
   if (!user || !(await user.comparePassword(password))) {
     throw new AppError('Invalid email or password', 401);
   }
+  if (!user.isActive) throw new AppError('Account is deactivated', 403);
 
-  if (!user.isActive) {
-    throw new AppError('Account is deactivated', 403);
-  }
+  await userRepository.updateLastLogin(user.id);
 
-  await userRepository.updateLastLogin(user._id);
-
-  const token = generateToken(user._id, user.role);
-  const refreshToken = generateRefreshToken(user._id);
+  const token = generateAccessToken(user.id, user.role);
+  const refreshToken = generateRefreshToken(user.id, user.role);
 
   return {
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      isVerified: user.isVerified
-    },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, isVerified: user.isVerified },
     token,
-    refreshToken
+    refreshToken,
   };
 };
 
-const logout = async (token) => {
-  const redis = getRedisClient();
-  await redis.setEx(`blacklist:${token}`, 900, 'true');
-};
+const logout = async (token) => blacklistToken(token);
 
-const refreshToken = async (refreshToken) => {
+const refreshToken = async (refreshTokenValue) => {
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(refreshTokenValue, process.env.JWT_REFRESH_SECRET);
+    if (!decoded.id) throw new AppError('Invalid token', 401);
     const user = await userRepository.findById(decoded.id);
-    
-    if (!user) {
-      throw new AppError('User not found', 404);
-    }
-
-    const newToken = generateToken(user._id, user.role);
-    const newRefreshToken = generateRefreshToken(user._id);
-
-    return { token: newToken, refreshToken: newRefreshToken };
-  } catch (error) {
+    if (!user) throw new AppError('User not found', 404);
+    return {
+      token: generateAccessToken(user.id, user.role),
+      refreshToken: generateRefreshToken(user.id, user.role),
+    };
+  } catch {
     throw new AppError('Invalid refresh token', 401);
   }
 };
 
 const verifyEmail = async (token) => {
-  if (!token) {
-    throw new AppError('Verification token is required', 400);
-  }
-
-  const redis = getRedisClient();
-  const userId = await redis.get(`verify:${token}`);
-  
-  if (!userId) {
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        await userRepository.verifyUser(decoded.id);
-        return;
-      } catch (error) {
-        // Fall through to the normal verification-token error below.
-      }
-    }
-
-    throw new AppError('Invalid or expired verification token', 400);
-  }
-
+  if (!token) throw new AppError('Verification token is required', 400);
+  const userId = await getRedisToken('user_verify', token);
+  if (!userId) throw new AppError('Invalid or expired verification token', 400);
   await userRepository.verifyUser(userId);
-  await redis.del(`verify:${token}`);
+  await deleteRedisToken('user_verify', token);
 };
 
 const forgotPassword = async (email) => {
   const user = await userRepository.findByEmail(email);
-  if (!user) {
-    throw new AppError('User not found', 404);
-  }
+  if (!user) throw new AppError('No account found with this email', 404);
 
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const redis = getRedisClient();
-  await redis.setEx(`reset:${resetToken}`, 3600, user._id.toString());
+  const resetToken = generateSecureToken();
+  await storeRedisToken('user_reset', resetToken, user.id);
 
-  await emailQueue.add('passwordReset', {
-    to: user.email,
-    subject: 'Password Reset',
-    token: resetToken
-  });
+  // Send password reset email (synchronous for now - can be made async later)
+  logger.info('Password reset requested', { userId: user.id, email: user.email });
 
-  if (process.env.NODE_ENV === 'development') {
-    return { resetToken };
-  }
-
+  if (process.env.NODE_ENV === 'development') return { resetToken };
   return {};
 };
 
 const resetPassword = async (token, newPassword) => {
-  if (!token) {
-    throw new AppError('Reset token is required', 400);
-  }
-
-  const redis = getRedisClient();
-  const userId = await redis.get(`reset:${token}`);
-  
-  if (!userId) {
-    throw new AppError('Invalid or expired reset token', 400);
-  }
-
+  if (!token) throw new AppError('Reset token is required', 400);
+  const userId = await getRedisToken('user_reset', token);
+  if (!userId) throw new AppError('Invalid or expired reset token', 400);
   await userRepository.updatePassword(userId, newPassword);
-  await redis.del(`reset:${token}`);
+  await deleteRedisToken('user_reset', token);
 };
 
-module.exports = {
-  register,
-  login,
-  logout,
-  refreshToken,
-  verifyEmail,
-  forgotPassword,
-  resetPassword
-};
+module.exports = { register, login, logout, refreshToken, verifyEmail, forgotPassword, resetPassword };

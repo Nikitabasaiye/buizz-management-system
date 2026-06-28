@@ -1,10 +1,29 @@
 const express = require('express');
-const { authenticate, authorize } = require('../../middleware/auth');
-const { USER_ROLES } = require('../../constants');
+const adminController = require('./admin.controller');
+const { authenticateAdmin, requireSuperAdmin } = require('./admin.middleware');
+const { validate } = require('../../validators');
+const {
+  registerValidator, loginValidator, updateProfileValidator,
+  changePasswordValidator, resetPasswordValidator, idParamValidator,
+} = require('./admin.validator');
 
 const router = express.Router();
 
-router.use(authenticate, authorize(USER_ROLES.ADMIN));
-router.get('/dashboard', (req, res) => res.json({ message: 'Admin module' }));
+// ── Public: Auth ─────────────────────────────────────────────────────────────
+router.post('/register',             validate(registerValidator),      adminController.register);
+router.post('/login',                validate(loginValidator),         adminController.login);
+router.post('/refresh',                                                adminController.refreshToken);
+router.post('/forgot-password',                                        adminController.forgotPassword);
+router.post('/reset-password/:token',validate(resetPasswordValidator), adminController.resetPassword);
+
+// ── Protected: Admin profile ──────────────────────────────────────────────────
+router.post('/logout',        authenticateAdmin,                                                        adminController.logout);
+router.get('/profile',        authenticateAdmin,                                                        adminController.getProfile);
+router.put('/profile',        authenticateAdmin, validate(updateProfileValidator),                      adminController.updateProfile);
+router.put('/password',       authenticateAdmin, validate(changePasswordValidator),                     adminController.changePassword);
+
+// ── Super Admin: manage admins ────────────────────────────────────────────────
+router.get('/',               authenticateAdmin, requireSuperAdmin,                                     adminController.getAllAdmins);
+router.delete('/:id',         authenticateAdmin, requireSuperAdmin, validate(idParamValidator),         adminController.deactivateAdmin);
 
 module.exports = router;

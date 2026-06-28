@@ -43,19 +43,18 @@ const authenticate = async (req, res, next) => {
     // Attach user data to request
     req.auth = decoded;
     req.user = {
-      id: user._id.toString(),
-      _id: user._id,
+      id: String(user.id),
       name: user.name,
       email: user.email,
       role: user.role,
       isVerified: user.isVerified,
+      kycStatus: user.kycStatus,
+      bankVerificationStatus: user.bankVerificationStatus,
       organizationId: user.organizationId,
       permissions: require('../config/permissions').getRolePermissions(user.role)
     };
 
-    // Log authentication for audit
     logger.info(`User authenticated: ${user.email} (${user.role})`);
-
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {

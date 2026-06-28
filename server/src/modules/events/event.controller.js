@@ -2,8 +2,9 @@ const eventService = require('./event.service');
 
 const createEvent = async (req, res, next) => {
   try {
-    const event = await eventService.createEvent(req.body, req.user.id);
-    res.status(201).json({ status: 'success', data: event });
+    const result = await eventService.createEvent(req.body, req.user.id, req.user.role);
+    const status = result.requiresApproval ? 202 : 201;
+    res.status(status).json({ status: 'success', data: result });
   } catch (error) {
     next(error);
   }
@@ -38,8 +39,9 @@ const getEventBySlug = async (req, res, next) => {
 
 const updateEvent = async (req, res, next) => {
   try {
-    const event = await eventService.updateEvent(req.params.id, req.body, req.user.id);
-    res.status(200).json({ status: 'success', data: event });
+    const result = await eventService.updateEvent(req.params.id, req.body, req.user.id, req.user.role);
+    const status = result.requiresApproval ? 202 : 200;
+    res.status(status).json({ status: 'success', data: result });
   } catch (error) {
     next(error);
   }
@@ -47,8 +49,9 @@ const updateEvent = async (req, res, next) => {
 
 const deleteEvent = async (req, res, next) => {
   try {
-    await eventService.deleteEvent(req.params.id, req.user.id);
-    res.status(200).json({ status: 'success', message: 'Event deleted successfully' });
+    const result = await eventService.deleteEvent(req.params.id, req.user.id, req.user.role);
+    const message = result.requiresApproval ? 'Delete request submitted' : 'Event deleted successfully';
+    res.status(200).json({ status: 'success', message, data: result });
   } catch (error) {
     next(error);
   }
@@ -56,7 +59,7 @@ const deleteEvent = async (req, res, next) => {
 
 const publishEvent = async (req, res, next) => {
   try {
-    const event = await eventService.publishEvent(req.params.id, req.user.id);
+    const event = await eventService.publishEvent(req.params.id, req.user.id, req.user.role);
     res.status(200).json({ status: 'success', data: event });
   } catch (error) {
     next(error);

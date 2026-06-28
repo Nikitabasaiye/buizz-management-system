@@ -1,0 +1,36 @@
+-- Complete fix for audit_logs table - drop and recreate with all columns
+DROP TABLE IF EXISTS audit_logs;
+
+CREATE TABLE audit_logs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NULL,
+  user_name VARCHAR(150) NULL,
+  user_email VARCHAR(255) NULL,
+  user_role ENUM('customer', 'organizer', 'admin', 'super_admin') NULL,
+  action VARCHAR(100) NOT NULL,
+  action_type ENUM('create', 'read', 'update', 'delete', 'login', 'logout', 'approve', 'reject', 'publish', 'cancel', 'payment', 'upload', 'download', 'other') NOT NULL DEFAULT 'other',
+  resource_type VARCHAR(50) NULL,
+  resource_id BIGINT UNSIGNED NULL,
+  description TEXT NULL,
+  ip_address VARCHAR(45) NULL,
+  user_agent TEXT NULL,
+  request_method VARCHAR(10) NULL,
+  request_url VARCHAR(500) NULL,
+  request_body JSON NULL,
+  response_status INT NULL,
+  old_values JSON NULL,
+  new_values JSON NULL,
+  metadata JSON NULL,
+  severity ENUM('low', 'medium', 'high', 'critical') NOT NULL DEFAULT 'low',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_user_id (user_id),
+  INDEX idx_user_role (user_role),
+  INDEX idx_action (action),
+  INDEX idx_action_type (action_type),
+  INDEX idx_resource (resource_type, resource_id),
+  INDEX idx_created_at (created_at),
+  INDEX idx_severity (severity),
+  INDEX idx_user_action (user_id, action, created_at),
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

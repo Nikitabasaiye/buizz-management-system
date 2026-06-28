@@ -1,4 +1,5 @@
 const USER_ROLES = {
+  SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
   ORGANIZER: 'organizer',
   USER: 'user',
@@ -27,6 +28,21 @@ const PAYMENT_STATUS = {
   REFUNDED: 'refunded'
 };
 
+const SETTLEMENT_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  PAID: 'paid',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled'
+};
+
+const SETTLEMENT_ITEM_STATUS = {
+  PENDING: 'pending',
+  INCLUDED: 'included',
+  SETTLED: 'settled',
+  CANCELLED: 'cancelled'
+};
+
 const NOTIFICATION_TYPES = {
   EMAIL: 'email',
   WHATSAPP: 'whatsapp',
@@ -39,7 +55,9 @@ const QUEUE_NAMES = {
   WHATSAPP: 'whatsappQueue',
   TICKET: 'ticketQueue',
   ANALYTICS: 'analyticsQueue',
-  NOTIFICATION: 'notificationQueue'
+  NOTIFICATION: 'notificationQueue',
+  BOOKING_CONFIRMED: 'bookingConfirmedQueue',
+  PDF_GENERATION: 'pdfGenerationQueue',
 };
 
 module.exports = {
@@ -47,6 +65,8 @@ module.exports = {
   EVENT_STATUS,
   TICKET_STATUS,
   PAYMENT_STATUS,
+  SETTLEMENT_STATUS,
+  SETTLEMENT_ITEM_STATUS,
   NOTIFICATION_TYPES,
   QUEUE_NAMES
 };

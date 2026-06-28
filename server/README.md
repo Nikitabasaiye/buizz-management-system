@@ -129,14 +129,10 @@ docker-compose down
 1. Implement Payment module with Razorpay
 2. Implement Ticket generation with QR codes
 3. Complete Organization CRUD
-4. Add Analytics tracking
+4. Add Analytics trackings
 5. Implement WhatsApp notifications
 6. Add comprehensive tests
 7. Set up CI/CD pipeline
 8. Deploy to AWS EC2
 
-## Environment Variables
-See `.env.example` for all required environment variables.
 
-## License
-Proprietary

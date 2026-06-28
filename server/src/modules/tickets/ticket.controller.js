@@ -1,25 +1,80 @@
-const ticketRepository = require('./ticket.repository');
-const { USER_ROLES } = require('../../constants');
+const ticketService = require('./ticket.service');
 
-const getTickets = async (req, res, next) => {
-  try {
-    const filters = { ...req.query };
-    if (![USER_ROLES.ADMIN, USER_ROLES.ORGANIZER].includes(req.user.role)) {
-      filters.userId = req.user.id;
+class TicketController {
+  async getMyTickets(req, res, next) {
+    try {
+      const { page = 1, limit = 20 } = req.query;
+      const result = await ticketService.getUserTickets(req.user.id, parseInt(page), parseInt(limit));
+      res.status(200).json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      next(error);
     }
-
-    const result = await ticketRepository.findAll(filters);
-
-    res.status(200).json({
-      status: 'success',
-      message: result.tickets.length ? 'Tickets fetched successfully' : 'No tickets found',
-      data: result
-    });
-  } catch (error) {
-    next(error);
   }
-};
 
-module.exports = {
-  getTickets
-};
+  async getTicketByNumber(req, res, next) {
+    try {
+      const ticket = await ticketService.getTicketByNumber(
+        req.params.ticketNumber,
+        req.user.id,
+        req.user.role
+      );
+      res.status(200).json({
+        success: true,
+        data: ticket
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async scanTicket(req, res, next) {
+    try {
+      const result = await ticketService.scanTicket(req.params.ticketNumber, req.user.id);
+      res.status(200).json({
+        success: true,
+        message: result.message,
+        data: result.ticket
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async cancelTicket(req, res, next) {
+    try {
+      const result = await ticketService.cancelTicket(
+        req.params.ticketNumber,
+        req.user.id,
+        req.user.role
+      );
+      res.status(200).json({
+        success: true,
+        message: result.message
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getEventTickets(req, res, next) {
+    try {
+      const { page = 1, limit = 50 } = req.query;
+      const result = await ticketService.getEventTickets(
+        req.params.eventId,
+        parseInt(page),
+        parseInt(limit)
+      );
+      res.status(200).json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
+module.exports = new TicketController();
