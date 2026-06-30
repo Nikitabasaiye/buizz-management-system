@@ -5,7 +5,7 @@ interface ApprovalRequest {
   event_id: number;
   organizer_id: number;
   action_type: 'create' | 'update' | 'delete';
-  request_data: any;
+  request_data: unknown;
   status: 'pending' | 'approved' | 'rejected';
   admin_status: string;
   super_admin_status: string;

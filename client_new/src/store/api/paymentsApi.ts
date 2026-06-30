@@ -11,7 +11,7 @@ interface Payment {
   provider: string;
   provider_payment_id?: string;
   status: 'pending' | 'success' | 'failed' | 'refunded';
-  gateway_response?: any;
+  gateway_response?: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -24,7 +24,7 @@ interface PaymentResponse {
 interface CreatePaymentRequest {
   eventId: number;
   amount: number;
-  tickets?: any[];
+  tickets?: unknown[];
 }
 
 interface CreatePaymentResponse {
