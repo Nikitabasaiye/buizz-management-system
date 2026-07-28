@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { AppError } = require('./errorHandler');
-const { getRedisClient } = require('../database/redis');
 const userRepository = require('../modules/users/user.repository');
+const { isTokenBlacklisted } = require('../utils/auth.helper');
 
 const authenticate = async (req, res, next) => {
   try {
@@ -12,15 +12,11 @@ const authenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Check if token is blacklisted
-    const redis = getRedisClient();
-    const isBlacklisted = await redis.get(`blacklist:${token}`);
-    
-    if (isBlacklisted) {
+
+    if (await isTokenBlacklisted(token)) {
       return next(new AppError('Token is invalid', 401));
     }
-
+    
     const user = await userRepository.findById(decoded.id);
     if (!user || !user.isActive) {
       return next(new AppError('User account is inactive or no longer exists', 401));

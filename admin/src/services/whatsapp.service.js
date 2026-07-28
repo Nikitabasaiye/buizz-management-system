@@ -1,12 +1,25 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 
+// ===== SWITCHED TO INTERAKT API =====
+// This service now uses Interakt WhatsApp API instead of Meta
+// For Interakt integration, use: ./whatsapp.interakt.service.js
+// Meta configuration is commented out below
+
+/* ===== META WHATSAPP CONFIG (COMMENTED) =====
 const WHATSAPP_CONFIG = {
-  apiUrl: process.env.META_WHATSAPP_API_URL || 'https://graph.facebook.com/v23.0',
+  apiUrl: process.env.META_WHATSAPP_API_URL || 'https://graph.facebook.com/v25.0',
   accessToken: process.env.META_WHATSAPP_ACCESS_TOKEN,
   phoneNumberId: process.env.META_WHATSAPP_PHONE_NUMBER_ID,
   businessAccountId: process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID,
 };
+===== END META CONFIG ===== */
+
+// Use Interakt service instead
+const interaktService = require('./whatsapp.interakt.service');
+
+// Export Interakt service with same interface
+module.exports = interaktService;
 
 class WhatsAppService {
   // ─── Private: base API caller ────────────────────────────────────────────────

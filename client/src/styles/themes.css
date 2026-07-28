@@ -1,0 +1,168 @@
+:root,
+.light {
+  color-scheme: light;
+
+  --color-brand-primary: #ec1b72;
+  --color-brand-secondary: #7c2bd9;
+  --color-brand-accent: #f6c453;
+  --color-brand-ink: #101828;
+  --color-brand-gradient: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-secondary));
+  --color-brand-gradient-soft: linear-gradient(135deg, rgb(236 27 114 / 0.12), rgb(124 43 217 / 0.1));
+  --color-brand-energy: #22c55e;
+  --color-brand-gold: var(--color-brand-accent);
+
+  --color-surface-default: #f8f9fd;
+  --color-surface-subtle: #f4f6fb;
+  --color-surface-card: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-hover: #fff1f7;
+  --color-input-background: #f4f6fb;
+
+  --color-sidebar-background: #ffffff;
+  --color-modal-background: #ffffff;
+  --color-table-background: #ffffff;
+  --color-table-row-hover: #fff7fb;
+
+  --color-text-primary: #101828;
+  --color-text-secondary: #667085;
+  --color-text-muted: #667085;
+  --color-text-inverse: #ffffff;
+
+  --color-border-default: #e6e9f2;
+  --color-border-strong: rgba(236, 27, 114, 0.18);
+
+  --app-background: var(--color-surface-default);
+  --app-foreground: var(--color-text-primary);
+  --app-muted: var(--color-text-secondary);
+  --app-border: var(--color-border-default);
+  --app-elevated: var(--color-surface-elevated);
+  --app-subtle: var(--color-surface-subtle);
+  --app-card: var(--color-surface-card);
+  --app-hover: var(--color-surface-hover);
+  --app-input: var(--color-input-background);
+  --app-sidebar: var(--color-sidebar-background);
+  --app-modal: var(--color-modal-background);
+  --app-table: var(--color-table-background);
+  --app-table-row-hover: var(--color-table-row-hover);
+
+  --card: var(--app-card);
+  --soft-card: #fff7fb;
+  --elevated-card: var(--app-elevated);
+  --border: var(--app-border);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+
+  --dark-bg: #08000b;
+  --dark-card: #120018;
+  --dark-soft: #1b1024;
+  --dark-border: rgba(236, 27, 114, 0.15);
+
+  --button-primary-text: #ffffff;
+
+  --button-solid-bg: #050816;
+  --button-solid-text: #ffffff;
+
+  --button-secondary-background: #fff7fb;
+  --button-secondary-border: var(--color-border-default);
+  --button-secondary-text: var(--color-brand-primary);
+
+  --button-danger-background: #ef4444;
+  --button-danger-text: #ffffff;
+
+  --color-status-success: #22c55e;
+  --color-status-warning: var(--color-brand-accent);
+  --color-status-danger: #ef4444;
+  --color-status-info: #3b82f6;
+
+  --color-card-hover: #fff1f7;
+  --color-glow: rgb(236 27 114 / 0.18);
+
+  --shadow-card: 0 20px 60px rgb(17 24 39 / 0.1);
+  --shadow-focus: 0 0 0 4px rgb(236 27 114 / 0.18);
+  --shadow-glow: 0 24px 80px rgb(124 43 217 / 0.22);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-brand-primary: #ec1b72;
+  --color-brand-secondary: #7c2bd9;
+  --color-brand-accent: #f6c453;
+  --color-brand-ink: #ffffff;
+  --color-brand-gradient: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-secondary));
+  --color-brand-gradient-soft: linear-gradient(135deg, rgb(255 79 147 / 0.2), rgb(157 92 255 / 0.18));
+  --color-brand-energy: #22c55e;
+  --color-brand-gold: var(--color-brand-accent);
+
+  --color-surface-default: #08000b;
+  --color-surface-subtle: #1b1024;
+  --color-surface-card: #120018;
+  --color-surface-elevated: #120018;
+  --color-surface-hover: #271033;
+  --color-input-background: #1b1024;
+
+  --color-sidebar-background: #120018;
+  --color-modal-background: #120018;
+  --color-table-background: #120018;
+  --color-table-row-hover: #1b1024;
+
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgb(255 255 255 / 0.88);
+  --color-text-muted: rgb(255 255 255 / 0.68);
+  --color-text-inverse: #08000b;
+
+  --color-border-default: rgba(236, 27, 114, 0.18);
+  --color-border-strong: rgba(236, 27, 114, 0.32);
+
+  --app-background: var(--color-surface-default);
+  --app-foreground: var(--color-text-primary);
+  --app-muted: var(--color-text-secondary);
+  --app-border: var(--color-border-default);
+  --app-elevated: var(--color-surface-elevated);
+  --app-subtle: var(--color-surface-subtle);
+  --app-card: var(--color-surface-card);
+  --app-hover: var(--color-surface-hover);
+  --app-input: var(--color-input-background);
+  --app-sidebar: var(--color-sidebar-background);
+  --app-modal: var(--color-modal-background);
+  --app-table: var(--color-table-background);
+  --app-table-row-hover: var(--color-table-row-hover);
+
+  --card: var(--app-card);
+  --soft-card: var(--app-subtle);
+  --elevated-card: var(--app-elevated);
+  --border: var(--app-border);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+
+  --dark-bg: var(--app-background);
+  --dark-card: var(--app-card);
+  --dark-soft: var(--app-subtle);
+  --dark-border: var(--app-border);
+
+  --button-primary-text: #ffffff;
+
+  --button-solid-bg: #ffffff;
+  --button-solid-text: #08000b;
+
+  --button-secondary-background: #1b1024;
+  --button-secondary-border: rgba(236, 27, 114, 0.22);
+  --button-secondary-text: #ffffff;
+
+  --button-danger-background: #ef4444;
+  --button-danger-text: #ffffff;
+
+  --color-status-success: #22c55e;
+  --color-status-warning: var(--color-brand-accent);
+  --color-status-danger: #ef4444;
+  --color-status-info: #60a5fa;
+
+  --color-card-hover: #271033;
+  --color-glow: rgb(236 27 114 / 0.24);
+
+  --shadow-card: 0 24px 80px rgb(0 0 0 / 0.34);
+  --shadow-focus: 0 0 0 4px rgb(236 27 114 / 0.28);
+  --shadow-glow: 0 24px 90px rgb(236 27 114 / 0.24);
+}

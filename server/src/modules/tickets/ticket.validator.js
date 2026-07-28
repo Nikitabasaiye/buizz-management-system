@@ -4,7 +4,7 @@ const getTicketValidator = [
   param('ticketNumber')
     .notEmpty()
     .withMessage('Ticket number is required')
-    .matches(/^TKT[0-9]+$/)
+    .matches(/^([0-9]+|[0-9]+)$/)
     .withMessage('Invalid ticket number format')
 ];
 

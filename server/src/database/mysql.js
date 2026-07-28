@@ -2,6 +2,12 @@ const mysql = require('mysql2/promise');
 const logger = require('../utils/logger');
 
 let pool;
+let status = {
+  connected: false,
+  schemaReady: false,
+  lastError: null,
+  connectedAt: null,
+};
 
 const hasMysqlConfig = () => Boolean(
   process.env.MYSQL_HOST &&
@@ -9,9 +15,12 @@ const hasMysqlConfig = () => Boolean(
   process.env.MYSQL_USER
 );
 
+const normalizeMysqlHost = (host) => (host === 'localhost' ? '127.0.0.1' : host);
+
 const connectMySQL = async () => {
   if (!hasMysqlConfig()) {
     const message = 'MySQL configuration is incomplete. Set MYSQL_HOST, MYSQL_DATABASE, MYSQL_USER, and MYSQL_PASSWORD.';
+    status = { ...status, connected: false, schemaReady: false, lastError: message };
     if (process.env.NODE_ENV === 'production') throw new Error(message);
     logger.warn(`${message} MySQL will be skipped in development.`);
     return null;
@@ -19,7 +28,7 @@ const connectMySQL = async () => {
 
   try {
     pool = mysql.createPool({
-      host: process.env.MYSQL_HOST,
+      host: normalizeMysqlHost(process.env.MYSQL_HOST),
       port: Number(process.env.MYSQL_PORT) || 3306,
       database: process.env.MYSQL_DATABASE,
       user: process.env.MYSQL_USER,
@@ -31,10 +40,38 @@ const connectMySQL = async () => {
     });
 
     await pool.query('SELECT 1');
-    await initializeSchema();
+    status = {
+      connected: true,
+      schemaReady: false,
+      lastError: null,
+      connectedAt: new Date().toISOString(),
+    };
+
+    try {
+      await initializeSchema();
+      status = { ...status, schemaReady: true, lastError: null };
+    } catch (schemaError) {
+      status = {
+        ...status,
+        schemaReady: false,
+        lastError: `Schema initialization failed: ${schemaError.message}`,
+      };
+      logger.error('MySQL schema initialization failed:', schemaError);
+
+      if (process.env.SCHEMA_INIT_STRICT === 'true') {
+        throw schemaError;
+      }
+    }
+
     logger.info('MySQL connected successfully');
     return pool;
   } catch (error) {
+    status = {
+      connected: false,
+      schemaReady: false,
+      lastError: error.message,
+      connectedAt: null,
+    };
     if (process.env.NODE_ENV === 'production') throw error;
     logger.warn(`MySQL connection skipped in development: ${error.message}`);
     pool = null;
@@ -73,6 +110,12 @@ const addIndexIfMissing = async (table, index, columns) => {
   }
 };
 
+const addUniqueIndexIfMissing = async (table, index, columns) => {
+  if (!(await indexExists(table, index))) {
+    await pool.query(`ALTER TABLE ${table} ADD UNIQUE INDEX ${index} (${columns})`);
+  }
+};
+
 const renameColumnIfExists = async (table, oldCol, newCol, definition) => {
   if ((await columnExists(table, oldCol)) && !(await columnExists(table, newCol))) {
     await pool.query(`ALTER TABLE ${table} CHANGE COLUMN ${oldCol} ${newCol} ${definition}`).catch((err) => {
@@ -103,7 +146,7 @@ const initializeSchema = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      display_id VARCHAR(20) NULL,
+      display_id BIGINT UNSIGNED NULL,
       name VARCHAR(150) NOT NULL,
       email VARCHAR(255) NOT NULL,
       password VARCHAR(255) NOT NULL,
@@ -125,16 +168,60 @@ const initializeSchema = async () => {
 
   // migrate id → user_id if old column still exists
   await renameColumnIfExists('users', 'id', 'user_id', 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
-  await addColumnIfMissing('users', 'display_id', 'VARCHAR(20) NULL UNIQUE AFTER user_id');
+  await addColumnIfMissing('users', 'display_id', 'BIGINT UNSIGNED NULL AFTER user_id');
+  await pool.query('UPDATE users SET display_id = user_id WHERE display_id IS NULL');
+  await addUniqueIndexIfMissing('users', 'users_display_id_unique', 'display_id');
+  await addColumnIfMissing('users', 'google_id', 'VARCHAR(255) NULL AFTER avatar');
+  await addColumnIfMissing('users', 'facebook_id', 'VARCHAR(255) NULL AFTER google_id');
+  await addColumnIfMissing('users', 'is_email_verified', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER is_verified');
+  await addColumnIfMissing('users', 'is_phone_verified', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER is_email_verified');
   await addColumnIfMissing('users', 'kyc_status', "ENUM('not_submitted', 'pending', 'verified', 'rejected') NOT NULL DEFAULT 'not_submitted' AFTER is_verified");
   await addColumnIfMissing('users', 'bank_verification_status', "ENUM('not_submitted', 'pending', 'verified', 'rejected') NOT NULL DEFAULT 'not_submitted' AFTER kyc_status");
   await addColumnIfMissing('users', 'kyc_verified_at', 'DATETIME NULL AFTER bank_verification_status');
   await addColumnIfMissing('users', 'kyc_verified_by', 'BIGINT UNSIGNED NULL AFTER kyc_verified_at');
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS verification_codes (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      channel ENUM('email', 'phone') NOT NULL,
+      destination VARCHAR(255) NOT NULL,
+      purpose VARCHAR(40) NOT NULL DEFAULT 'signup',
+      code_hash CHAR(64) NOT NULL,
+      verification_token CHAR(64) NULL,
+      attempts INT UNSIGNED NOT NULL DEFAULT 0,
+      expires_at DATETIME NOT NULL,
+      verified_at DATETIME NULL,
+      consumed_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY verification_lookup_index (channel, destination, purpose, created_at),
+      UNIQUE KEY verification_token_unique (verification_token)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_queue (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      type ENUM('EMAIL', 'WHATSAPP', 'SMS') NOT NULL,
+      recipient VARCHAR(255) NOT NULL,
+      payload JSON NOT NULL,
+      status ENUM('PENDING', 'PROCESSING', 'SENT', 'FAILED') NOT NULL DEFAULT 'PENDING',
+      retry_count INT UNSIGNED NOT NULL DEFAULT 0,
+      max_retries INT UNSIGNED NOT NULL DEFAULT 5,
+      available_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      locked_at DATETIME NULL,
+      last_error TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      processed_at DATETIME NULL,
+      PRIMARY KEY (id),
+      KEY notification_queue_pending_index (status, available_at, id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
   // ── organizations ────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS organizations (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      org_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
       name VARCHAR(180) NOT NULL,
       slug VARCHAR(220) NOT NULL,
       description TEXT NULL,
@@ -152,11 +239,12 @@ const initializeSchema = async () => {
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
+      PRIMARY KEY (org_id),
       UNIQUE KEY organizations_slug_unique (slug),
       KEY organizations_owner_id_index (owner_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+  await renameColumnIfExists('organizations', 'id', 'org_id', 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
 
   // ── organization_members ─────────────────────────────────────────────────
   await pool.query(`
@@ -301,6 +389,114 @@ const initializeSchema = async () => {
   await renameColumnIfExists('payments', 'metadata', 'gateway_response', 'LONGTEXT NULL');
   await addColumnIfMissing('payments', 'booking_id', 'BIGINT UNSIGNED NULL AFTER payment_id');
   await addColumnIfMissing('payments', 'gateway_response', 'LONGTEXT NULL AFTER payment_method');
+  await addColumnIfMissing('payments', 'razorpay_order_id', 'VARCHAR(255) NULL AFTER gateway_response');
+  await addIndexIfMissing('payments', 'payments_razorpay_order_id_index', 'razorpay_order_id');
+
+  // ── payment_history ───────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_history (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      payment_id BIGINT UNSIGNED NULL,
+      order_id VARCHAR(255) NULL,
+      user_id BIGINT UNSIGNED NULL,
+      event_id BIGINT UNSIGNED NULL,
+      booking_id BIGINT UNSIGNED NULL,
+      gateway VARCHAR(50) NULL,
+      gateway_order_id VARCHAR(255) NULL,
+      gateway_payment_id VARCHAR(255) NULL,
+      from_status VARCHAR(50) NULL,
+      to_status VARCHAR(50) NULL,
+      amount DECIMAL(10,2) NULL,
+      currency VARCHAR(10) NOT NULL DEFAULT 'INR',
+      payment_method VARCHAR(100) NULL,
+      source VARCHAR(50) NULL,
+      raw_payload LONGTEXT NULL,
+      error_code VARCHAR(100) NULL,
+      error_description TEXT NULL,
+      ip_address VARCHAR(45) NULL,
+      user_agent TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY ph_payment_id_index (payment_id),
+      KEY ph_order_id_index (order_id),
+      KEY ph_user_id_index (user_id),
+      KEY ph_gateway_payment_id_index (gateway_payment_id),
+      KEY ph_created_at_index (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  // ── user_sessions ─────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      session_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NOT NULL,
+      session_token TEXT NOT NULL,
+      refresh_token VARCHAR(255) NULL,
+      role VARCHAR(50) NULL,
+      ip_address VARCHAR(45) NULL,
+      user_agent TEXT NULL,
+      device_type VARCHAR(80) NULL,
+      browser VARCHAR(120) NULL,
+      os VARCHAR(120) NULL,
+      expires_at DATETIME NULL,
+      session_data LONGTEXT NULL,
+      location_data LONGTEXT NULL,
+      metadata LONGTEXT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      is_revoked TINYINT(1) NOT NULL DEFAULT 0,
+      revoked_at DATETIME NULL,
+      revoked_by BIGINT UNSIGNED NULL,
+      revoke_reason VARCHAR(255) NULL,
+      last_activity DATETIME NULL,
+      logout_at DATETIME NULL,
+      login_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (session_id),
+      KEY user_sessions_user_id_index (user_id),
+      KEY user_sessions_role_index (role),
+      KEY user_sessions_is_active_index (is_active),
+      KEY user_sessions_login_at_index (login_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await renameColumnIfExists('user_sessions', 'id', 'session_id', 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
+  await addColumnIfMissing('user_sessions', 'refresh_token', 'VARCHAR(255) NULL AFTER session_token');
+  await addColumnIfMissing('user_sessions', 'role', 'VARCHAR(50) NULL AFTER refresh_token');
+  await addColumnIfMissing('user_sessions', 'device_type', 'VARCHAR(80) NULL AFTER user_agent');
+  await addColumnIfMissing('user_sessions', 'browser', 'VARCHAR(120) NULL AFTER device_type');
+  await addColumnIfMissing('user_sessions', 'os', 'VARCHAR(120) NULL AFTER browser');
+  await addColumnIfMissing('user_sessions', 'expires_at', 'DATETIME NULL AFTER os');
+  await addColumnIfMissing('user_sessions', 'session_data', 'LONGTEXT NULL AFTER expires_at');
+  await addColumnIfMissing('user_sessions', 'location_data', 'LONGTEXT NULL AFTER session_data');
+  await addColumnIfMissing('user_sessions', 'is_revoked', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER is_active');
+  await addColumnIfMissing('user_sessions', 'revoked_at', 'DATETIME NULL AFTER is_revoked');
+  await addColumnIfMissing('user_sessions', 'revoked_by', 'BIGINT UNSIGNED NULL AFTER revoked_at');
+  await addColumnIfMissing('user_sessions', 'revoke_reason', 'VARCHAR(255) NULL AFTER revoked_by');
+  await addColumnIfMissing('user_sessions', 'updated_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+  await addIndexIfMissing('user_sessions', 'user_sessions_role_index', 'role');
+  await addIndexIfMissing('user_sessions', 'user_sessions_active_role_index', 'is_active, role');
+
+  // ── file_access_logs ──────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS file_access_logs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NULL,
+      file_type VARCHAR(100) NULL,
+      file_name VARCHAR(255) NULL,
+      file_path VARCHAR(500) NULL,
+      file_size BIGINT NULL,
+      action VARCHAR(50) NULL,
+      resource_type VARCHAR(100) NULL,
+      resource_id VARCHAR(100) NULL,
+      ip_address VARCHAR(45) NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'success',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY fal_user_id_index (user_id),
+      KEY fal_action_index (action),
+      KEY fal_created_at_index (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
 
   // ── tickets ───────────────────────────────────────────────────────────────
   await pool.query(`
@@ -352,6 +548,169 @@ const initializeSchema = async () => {
       PRIMARY KEY (id),
       KEY qr_scans_ticket_id_index (ticket_id),
       KEY qr_scans_scanned_by_index (scanned_by)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS support_tickets (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      ticket_id VARCHAR(80) NOT NULL,
+      user_id BIGINT UNSIGNED NULL,
+      subject VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      priority ENUM('low', 'medium', 'high', 'urgent') NOT NULL DEFAULT 'medium',
+      category ENUM('general', 'booking', 'payment', 'technical', 'account') NOT NULL DEFAULT 'general',
+      order_id BIGINT UNSIGNED NULL,
+      event_id BIGINT UNSIGNED NULL,
+      status ENUM('open', 'in_progress', 'resolved', 'closed', 'deleted') NOT NULL DEFAULT 'open',
+      resolution TEXT NULL,
+      assigned_to BIGINT UNSIGNED NULL,
+      assigned_at DATETIME NULL,
+      resolved_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY support_tickets_ticket_id_unique (ticket_id),
+      KEY support_tickets_user_id_index (user_id),
+      KEY support_tickets_status_index (status),
+      KEY support_tickets_priority_index (priority),
+      KEY support_tickets_event_id_index (event_id),
+      KEY support_tickets_order_id_index (order_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS event_approval_requests (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      event_id BIGINT UNSIGNED NULL,
+      organizer_id BIGINT UNSIGNED NOT NULL,
+      action_type ENUM('create', 'update', 'delete') NOT NULL DEFAULT 'create',
+      request_data LONGTEXT NOT NULL,
+      status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+      admin_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+      super_admin_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+      admin_id BIGINT UNSIGNED NULL,
+      super_admin_id BIGINT UNSIGNED NULL,
+      rejection_reason TEXT NULL,
+      processed_at DATETIME NULL,
+      requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY event_approval_requests_event_id_index (event_id),
+      KEY event_approval_requests_organizer_id_index (organizer_id),
+      KEY event_approval_requests_status_index (status),
+      KEY event_approval_requests_admin_status_index (admin_status),
+      KEY event_approval_requests_super_admin_status_index (super_admin_status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await addColumnIfMissing('event_approval_requests', 'event_id', 'BIGINT UNSIGNED NULL');
+  await addColumnIfMissing('event_approval_requests', 'organizer_id', 'BIGINT UNSIGNED NULL');
+  await addColumnIfMissing('event_approval_requests', 'action_type', "ENUM('create', 'update', 'delete') NOT NULL DEFAULT 'create'");
+  await addColumnIfMissing('event_approval_requests', 'request_data', 'LONGTEXT NULL');
+  await addColumnIfMissing('event_approval_requests', 'status', "ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending'");
+  await addColumnIfMissing('event_approval_requests', 'admin_status', "ENUM('pending', 'approved', 'rejected') NULL DEFAULT 'pending'");
+  await addColumnIfMissing('event_approval_requests', 'super_admin_status', "ENUM('pending', 'approved', 'rejected') NULL DEFAULT 'pending'");
+  await addColumnIfMissing('event_approval_requests', 'admin_id', 'BIGINT UNSIGNED NULL');
+  await addColumnIfMissing('event_approval_requests', 'super_admin_id', 'BIGINT UNSIGNED NULL');
+  await addColumnIfMissing('event_approval_requests', 'rejection_reason', 'TEXT NULL');
+  await addColumnIfMissing('event_approval_requests', 'processed_at', 'DATETIME NULL');
+  await addColumnIfMissing('event_approval_requests', 'requested_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
+  await addColumnIfMissing('event_approval_requests', 'created_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
+  await addColumnIfMissing('event_approval_requests', 'updated_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+  await pool.query(`
+    UPDATE event_approval_requests
+    SET
+      status = COALESCE(status, 'pending'),
+      admin_status = COALESCE(admin_status, 'pending'),
+      super_admin_status = COALESCE(super_admin_status, 'pending')
+  `).catch((err) => logger.warn(`Could not normalize event approval request statuses: ${err.message}`));
+  await addIndexIfMissing('event_approval_requests', 'event_approval_requests_event_id_index', 'event_id');
+  await addIndexIfMissing('event_approval_requests', 'event_approval_requests_organizer_id_index', 'organizer_id');
+  await addIndexIfMissing('event_approval_requests', 'event_approval_requests_status_index', 'status');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS event_approval_history (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      approval_request_id BIGINT UNSIGNED NULL,
+      event_id BIGINT UNSIGNED NULL,
+      organizer_id BIGINT UNSIGNED NULL,
+      organizer_name VARCHAR(150) NULL,
+      organizer_email VARCHAR(255) NULL,
+      reviewer_id BIGINT UNSIGNED NULL,
+      reviewer_name VARCHAR(150) NULL,
+      reviewer_email VARCHAR(255) NULL,
+      reviewer_role VARCHAR(50) NULL,
+      action VARCHAR(50) NOT NULL,
+      previous_status VARCHAR(50) NULL,
+      new_status VARCHAR(50) NULL,
+      comments TEXT NULL,
+      rejection_reason TEXT NULL,
+      metadata LONGTEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY event_approval_history_request_index (approval_request_id),
+      KEY event_approval_history_event_index (event_id),
+      KEY event_approval_history_organizer_index (organizer_id),
+      KEY event_approval_history_reviewer_index (reviewer_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await addColumnIfMissing('event_approval_history', 'approval_request_id', 'BIGINT UNSIGNED NULL AFTER id');
+  await addColumnIfMissing('event_approval_history', 'event_id', 'BIGINT UNSIGNED NULL');
+  await addColumnIfMissing('event_approval_history', 'organizer_id', 'BIGINT UNSIGNED NULL');
+  await addColumnIfMissing('event_approval_history', 'organizer_name', 'VARCHAR(150) NULL');
+  await addColumnIfMissing('event_approval_history', 'organizer_email', 'VARCHAR(255) NULL');
+  await addColumnIfMissing('event_approval_history', 'reviewer_id', 'BIGINT UNSIGNED NULL');
+  await addColumnIfMissing('event_approval_history', 'reviewer_name', 'VARCHAR(150) NULL');
+  await addColumnIfMissing('event_approval_history', 'reviewer_email', 'VARCHAR(255) NULL');
+  await addColumnIfMissing('event_approval_history', 'reviewer_role', 'VARCHAR(50) NULL');
+  await addColumnIfMissing('event_approval_history', 'action', 'VARCHAR(50) NULL');
+  await addColumnIfMissing('event_approval_history', 'previous_status', 'VARCHAR(50) NULL');
+  await addColumnIfMissing('event_approval_history', 'new_status', 'VARCHAR(50) NULL');
+  await addColumnIfMissing('event_approval_history', 'comments', 'TEXT NULL');
+  await addColumnIfMissing('event_approval_history', 'rejection_reason', 'TEXT NULL');
+  await addColumnIfMissing('event_approval_history', 'metadata', 'LONGTEXT NULL');
+  await addColumnIfMissing('event_approval_history', 'created_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
+  await addIndexIfMissing('event_approval_history', 'event_approval_history_request_index', 'approval_request_id');
+  await addIndexIfMissing('event_approval_history', 'event_approval_history_event_index', 'event_id');
+  await addIndexIfMissing('event_approval_history', 'event_approval_history_organizer_index', 'organizer_id');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NULL,
+      user_name VARCHAR(150) NULL,
+      user_email VARCHAR(255) NULL,
+      user_role VARCHAR(50) NULL,
+      action VARCHAR(150) NOT NULL,
+      action_type VARCHAR(50) NULL,
+      resource_type VARCHAR(100) NULL,
+      resource_id VARCHAR(100) NULL,
+      description TEXT NULL,
+      ip_address VARCHAR(45) NULL,
+      user_agent TEXT NULL,
+      request_method VARCHAR(20) NULL,
+      request_url VARCHAR(500) NULL,
+      request_body LONGTEXT NULL,
+      response_status INT NULL,
+      old_values LONGTEXT NULL,
+      new_values LONGTEXT NULL,
+      metadata LONGTEXT NULL,
+      severity VARCHAR(30) NOT NULL DEFAULT 'low',
+      method VARCHAR(20) NULL,
+      path VARCHAR(500) NULL,
+      ip VARCHAR(45) NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'success',
+      error_message TEXT NULL,
+      duration INT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY audit_logs_user_id_index (user_id),
+      KEY audit_logs_action_index (action),
+      KEY audit_logs_resource_index (resource_type, resource_id),
+      KEY audit_logs_created_at_index (created_at),
+      KEY audit_logs_status_index (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
@@ -503,7 +862,14 @@ const initializeSchema = async () => {
   await pool.query(`SET FOREIGN_KEY_CHECKS = 1`);
 };
 
-const getMySQLPool = () => pool;
+const getMySQLPool = () => {
+  if (!pool) {
+    throw new Error(status.lastError || 'MySQL is not connected.');
+  }
+
+  return pool;
+};
+const getMySQLStatus = () => ({ ...status });
 
 const requirePool = () => {
   if (!pool) throw new Error('MySQL is not connected.');
@@ -514,4 +880,4 @@ const execute = (...args) => requirePool().execute(...args);
 const query = (...args) => requirePool().query(...args);
 const getConnection = (...args) => requirePool().getConnection(...args);
 
-module.exports = { connectMySQL, getMySQLPool, execute, query, getConnection };
+module.exports = { connectMySQL, getMySQLPool, getMySQLStatus, execute, query, getConnection };

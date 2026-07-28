@@ -1,6 +1,11 @@
 const pool = require('../database/mysql');
 const QRCode = require('qrcode');
 
+const getApiBaseUrl = () => {
+  const configured = process.env.API_URL || 'https://api.buizz.com';
+  return String(configured).replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
+};
+
 class TicketRepository {
   async create(ticketData) {
     const connection = await pool.getConnection();
@@ -17,8 +22,14 @@ class TicketRepository {
         status = 'active'
       } = ticketData;
 
-      const qrData = JSON.stringify({ ticket_number, event_id, user_id, booking_id, payment_id });
-      const qr_code = await QRCode.toDataURL(qrData);
+      // Keep QR payload scanner-friendly and avoid double /api/v1 when API_URL already includes it.
+      const qrData = `${getApiBaseUrl()}/api/v1/qr/redirect/${encodeURIComponent(ticket_number)}`;
+      const qr_code = await QRCode.toDataURL(qrData, {
+        errorCorrectionLevel: 'H',
+        margin: 3,
+        width: 512,
+        color: { dark: '#090a0d', light: '#ffffff' }
+      });
 
       const [result] = await connection.execute(
         `INSERT INTO tickets (ticket_number, booking_id, payment_id, event_id, user_id, ticket_type_id, ticket_type, price, qr_code, qr_data, status)
@@ -47,17 +58,42 @@ class TicketRepository {
     return rows[0];
   }
 
-  async findByUserId(userId, limit = 20, offset = 0) {
+  async findById(ticketId) {
     const [rows] = await pool.execute(
-      `SELECT t.*, e.title as event_title, e.start_date as event_date, e.venue_name, e.banner
+      `SELECT t.*, e.title as event_title, e.start_date as event_date, e.venue_name, e.venue_address,
+              u.name as user_name, u.email as user_email, u.phone as user_phone,
+              p.order_id, p.transaction_id
        FROM tickets t
        LEFT JOIN events e ON t.event_id = e.event_id
-       WHERE t.user_id = ?
-       ORDER BY t.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [userId, limit, offset]
+       LEFT JOIN users u ON t.user_id = u.user_id
+       LEFT JOIN payments p ON t.payment_id = p.payment_id
+       WHERE t.ticket_id = ?`,
+      [ticketId]
     );
-    return rows;
+    return rows[0];
+  }
+
+  async findByUserId(userId, limit = 20, offset = 0) {
+    const connection = await pool.getConnection();
+    try {
+      connection.queryTimeout = 10000; // 10 second timeout
+      const [rows] = await connection.execute(
+        `SELECT t.ticket_id, t.ticket_number, t.booking_id, t.payment_id, t.event_id, t.user_id,
+                t.ticket_type_id, t.ticket_type, t.price, t.qr_code, t.qr_data, t.status,
+                t.checked_in, t.checked_in_at, t.created_at, t.updated_at,
+                e.title as event_title, e.start_date as event_date, e.venue_name, e.banner,
+                e.venue_city, e.venue_state, e.type as event_type
+         FROM tickets t
+         LEFT JOIN events e ON t.event_id = e.event_id
+         WHERE t.user_id = ?
+         ORDER BY t.created_at DESC
+         LIMIT ? OFFSET ?`,
+        [userId, limit, offset]
+      );
+      return rows;
+    } finally {
+      connection.release();
+    }
   }
 
   async findByPaymentId(paymentId) {
@@ -122,10 +158,9 @@ class TicketRepository {
   }
 
   async generateTicketNumber() {
-    const prefix = 'TKT';
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `${prefix}${timestamp}${random}`;
+    return `${timestamp}${random}`;
   }
 }
 

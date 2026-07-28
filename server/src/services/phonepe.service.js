@@ -16,7 +16,9 @@ class PhonePeService {
       throw new Error('PhonePe V2 credentials are not configured');
     }
 
-    if (!this.client) {
+    // Always create a fresh client — singleton getInstance can cache stale credentials
+    if (!this.client || this._clientId !== PHONEPE_CONFIG.clientId) {
+      this._clientId = PHONEPE_CONFIG.clientId;
       this.client = StandardCheckoutClient.getInstance(
         PHONEPE_CONFIG.clientId,
         PHONEPE_CONFIG.clientSecret,
@@ -38,7 +40,10 @@ class PhonePeService {
         orderId,
         amount,
         userId,
-        env: PHONEPE_CONFIG.env
+        env: PHONEPE_CONFIG.env,
+        clientId: PHONEPE_CONFIG.clientId,
+        clientVersion: PHONEPE_CONFIG.clientVersion,
+        hasSecret: !!PHONEPE_CONFIG.clientSecret
       });
 
       const request = StandardCheckoutPayRequest.builder()
@@ -203,7 +208,7 @@ class PhonePeService {
 
   mapOrderStatusResponse(response, latestPayment) {
     return {
-      success: response.state !== 'FAILED',
+      success: response.state === 'COMPLETED',
       status: response.state,
       transactionId: latestPayment?.transactionId || response.orderId,
       amount: response.amount / 100,

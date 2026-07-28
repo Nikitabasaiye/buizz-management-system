@@ -99,17 +99,11 @@ const auditMiddleware = (options = {}) => {
  * Check if request body should be logged
  */
 function shouldLogBody(req) {
-  // Don't log sensitive routes
+  const path = typeof req.path === 'string' ? req.path : '';
   const sensitiveRoutes = ['/login', '/register', '/password', '/auth'];
-  if (sensitiveRoutes.some(route => req.path.includes(route))) {
-    return false;
-  }
-
-  // Don't log file uploads
-  if (req.headers['content-type']?.includes('multipart/form-data')) {
-    return false;
-  }
-
+  if (sensitiveRoutes.some(route => path.includes(route))) return false;
+  const contentType = typeof req.headers['content-type'] === 'string' ? req.headers['content-type'] : '';
+  if (contentType.includes('multipart/form-data')) return false;
   return req.method !== 'GET';
 }
 

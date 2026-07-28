@@ -1,0 +1,1449 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./themes.css";
+
+/* --------------------------------------------------------------------------
+   BUIZZ PUBLIC WEBSITE PREMIUM THEME
+   This block keeps Home, Events, Plays, Activities, Details, Booking,
+   Blog, About, Contact, Profile, and public auth screens on one color system.
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --font-ui: Inter, Geist, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+
+  --app-background: #f5f6fb;
+  --app-foreground: #0f172a;
+  --app-muted: #667085;
+  --app-elevated: #ffffff;
+  --app-subtle: #f0f3f9;
+  --app-border: #dde3ee;
+  --app-hover: #fff3f8;
+  --app-card: #ffffff;
+  --app-input: #f8fafc;
+  --app-sidebar: rgb(255 255 255 / 0.9);
+  --app-modal: #ffffff;
+  --app-table: #ffffff;
+  --app-table-row-hover: #fff6fb;
+  --color-border-strong: rgb(var(--brand-primary-rgb) / 0.22);
+  --shadow-glow: var(--shadow-brand);
+  --color-surface-inverse: #101828;
+
+  --color-brand-primary: #ec1b72;
+  --color-brand-secondary: #7c2bd9;
+  --color-brand-accent: #f6c453;
+  --color-brand-success: #22c55e;
+  --color-brand-danger: #ef4444;
+
+  --brand-primary-rgb: 236 27 114;
+  --brand-secondary-rgb: 124 43 217;
+  --brand-accent-rgb: 246 196 83;
+
+  --color-brand-gradient: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-secondary));
+  --color-brand-soft-gradient: linear-gradient(135deg, rgb(var(--brand-primary-rgb) / 0.11), rgb(var(--brand-secondary-rgb) / 0.11));
+  --color-page-gradient:
+    radial-gradient(circle at 8% 0%, rgb(var(--brand-primary-rgb) / 0.06), transparent 28rem),
+    radial-gradient(circle at 92% 3%, rgb(var(--brand-secondary-rgb) / 0.06), transparent 32rem),
+    linear-gradient(180deg, #fbfcff 0%, var(--app-background) 46%, #eef2f8 100%);
+
+  --button-primary-text: #ffffff;
+  --button-secondary-background: #ffffff;
+  --button-secondary-border: #eadff5;
+  --button-secondary-text: #401069;
+  --button-solid-bg: #101828;
+  --button-solid-text: #ffffff;
+
+  --radius-md: 0.875rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+
+  --shadow-xs: 0 4px 14px rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 10px 28px rgb(15 23 42 / 0.07);
+  --shadow-card: 0 22px 68px rgb(16 24 40 / 0.08);
+  --shadow-lg: 0 32px 110px rgb(15 23 42 / 0.18);
+  --shadow-brand: 0 18px 44px rgb(var(--brand-primary-rgb) / 0.24);
+  --shadow-focus: 0 0 0 4px rgb(var(--brand-primary-rgb) / 0.16);
+
+  --motion-base: 180ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --app-background: #070914;
+  --app-foreground: #f8fafc;
+  --app-muted: #a3a9b8;
+  --app-elevated: #111421;
+  --app-subtle: #181d2d;
+  --app-border: #2a3044;
+  --app-hover: #20263a;
+  --app-card: #111421;
+  --app-input: #181d2d;
+  --app-sidebar: rgb(17 19 31 / 0.92);
+  --app-modal: #11131f;
+  --app-table: #11131f;
+  --app-table-row-hover: #171a28;
+  --color-border-strong: rgb(var(--brand-primary-rgb) / 0.34);
+  --shadow-glow: var(--shadow-brand);
+  --color-surface-inverse: #050711;
+
+  --color-brand-primary: #f43f95;
+  --color-brand-secondary: #a855f7;
+  --color-brand-accent: #f6c453;
+  --color-brand-success: #22c55e;
+  --color-brand-danger: #fb7185;
+
+  --brand-primary-rgb: 244 63 149;
+  --brand-secondary-rgb: 168 85 247;
+  --brand-accent-rgb: 246 196 83;
+
+  --color-brand-gradient: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-secondary));
+  --color-brand-soft-gradient: linear-gradient(135deg, rgb(var(--brand-primary-rgb) / 0.16), rgb(var(--brand-secondary-rgb) / 0.16));
+  --color-page-gradient:
+    radial-gradient(circle at 8% 0%, rgb(var(--brand-primary-rgb) / 0.14), transparent 28rem),
+    radial-gradient(circle at 92% 2%, rgb(var(--brand-secondary-rgb) / 0.12), transparent 32rem),
+    linear-gradient(180deg, #070914 0%, #0a0d18 50%, #070914 100%);
+
+  --button-primary-text: #ffffff;
+  --button-secondary-background: rgb(255 255 255 / 0.08);
+  --button-secondary-border: rgb(255 255 255 / 0.12);
+  --button-secondary-text: #ffffff;
+  --button-solid-bg: #ffffff;
+  --button-solid-text: #101828;
+
+  --shadow-xs: 0 4px 14px rgb(0 0 0 / 0.20);
+  --shadow-sm: 0 10px 28px rgb(0 0 0 / 0.28);
+  --shadow-card: 0 24px 78px rgb(0 0 0 / 0.36);
+  --shadow-lg: 0 32px 120px rgb(0 0 0 / 0.50);
+  --shadow-brand: 0 22px 64px rgb(var(--brand-primary-rgb) / 0.22);
+  --shadow-focus: 0 0 0 4px rgb(var(--brand-primary-rgb) / 0.24);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  background: var(--app-background);
+}
+
+body {
+  min-height: 100dvh;
+  width: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--app-background);
+  color: var(--app-foreground);
+  font-family: Inter, Geist, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+body {
+  font-family: var(--font-ui), system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+#__next,
+main {
+  min-width: 0;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--color-brand-primary);
+  color: #ffffff;
+}
+
+:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Optional premium scrollbar */
+::-webkit-scrollbar {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--app-background);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid var(--app-background);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-brand-primary) 55%, var(--app-muted));
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-primary);
+}
+
+/* Forms */
+.field-control {
+  min-height: 3rem;
+  width: 100%;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--app-border);
+  background: var(--app-input);
+  padding: 0 1rem;
+  color: var(--app-foreground);
+  font-size: 0.875rem;
+  font-weight: 700;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.field-control::placeholder {
+  color: var(--app-muted);
+}
+
+.field-control:hover {
+  border-color: var(--color-brand-primary);
+  background: var(--app-hover);
+}
+
+.field-control:focus {
+  border-color: var(--color-brand-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.field-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Brand helpers */
+.buizz-gradient {
+  background-image: var(--color-brand-gradient);
+}
+
+.buizz-gradient-text {
+  background-image: var(--color-brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Surfaces */
+.buizz-card {
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-3xl);
+  background: color-mix(in srgb, var(--app-card) 92%, transparent);
+  color: var(--app-foreground);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-card);
+}
+
+.buizz-surface {
+  border: 1px solid var(--app-border);
+  background: var(--app-elevated);
+  color: var(--app-foreground);
+  box-shadow: var(--shadow-sm);
+}
+
+.buizz-subtle-surface {
+  border: 1px solid var(--app-border);
+  background: var(--app-subtle);
+  color: var(--app-foreground);
+}
+
+.buizz-sidebar {
+  border-color: var(--app-border);
+  background: var(--app-sidebar);
+  color: var(--app-foreground);
+}
+
+.buizz-modal {
+  border: 1px solid var(--app-border);
+  background: var(--app-modal);
+  color: var(--app-foreground);
+  box-shadow: var(--shadow-lg);
+}
+
+.buizz-table {
+  border: 1px solid var(--app-border);
+  background: var(--app-table);
+  color: var(--app-foreground);
+}
+
+.buizz-table-row:hover {
+  background: var(--app-table-row-hover);
+}
+
+/* Badge */
+.buizz-badge {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: rgb(var(--brand-primary-rgb) / 0.1);
+  padding: 0 0.65rem;
+  color: var(--color-brand-primary);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+/* Buttons */
+.buizz-button-primary,
+.buizz-button-secondary,
+.buizz-button-ghost,
+.buizz-button-solid {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-md);
+  padding: 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    transform var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    background-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard),
+    filter var(--motion-base) var(--ease-standard);
+}
+
+.buizz-button-primary {
+  border: 1px solid transparent;
+  background: var(--color-brand-gradient);
+  color: var(--button-primary-text);
+  box-shadow: 0 16px 38px rgb(var(--brand-primary-rgb) / 0.24);
+}
+
+.buizz-button-secondary {
+  border: 1px solid var(--button-secondary-border);
+  background: var(--button-secondary-background);
+  color: var(--button-secondary-text);
+}
+
+.buizz-button-ghost {
+  border: 1px solid var(--app-border);
+  background: var(--app-subtle);
+  color: var(--app-foreground);
+}
+
+.buizz-button-solid {
+  border: 1px solid var(--app-border);
+  background: var(--button-solid-bg);
+  color: var(--button-solid-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.buizz-button-primary:hover,
+.buizz-button-secondary:hover,
+.buizz-button-ghost:hover,
+.buizz-button-solid:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 18px 44px rgb(var(--brand-primary-rgb) / 0.18);
+}
+
+.buizz-button-primary:hover {
+  filter: brightness(1.06);
+}
+
+.buizz-button-secondary:hover,
+.buizz-button-ghost:hover {
+  background: var(--app-hover);
+  color: var(--color-brand-primary);
+}
+
+.buizz-button-solid:hover {
+  background: var(--color-brand-primary);
+  color: #ffffff;
+}
+
+.buizz-button-primary:disabled,
+.buizz-button-secondary:disabled,
+.buizz-button-ghost:disabled,
+.buizz-button-solid:disabled {
+  transform: none;
+  box-shadow: none;
+  opacity: 0.55;
+}
+
+/* Animations */
+@keyframes buizz-loader {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  50% {
+    transform: translateX(60%);
+  }
+
+  100% {
+    transform: translateX(210%);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes buizz-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-10px) scale(1.03);
+  }
+}
+
+@keyframes buizz-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes buizz-soft-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes buizz-dashboard-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes buizz-dashboard-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+.buizz-animate-float {
+  animation: buizz-float 5s ease-in-out infinite;
+}
+
+.buizz-animate-glow {
+  animation: buizz-glow-pulse 4s ease-in-out infinite;
+}
+
+.buizz-animate-slide-up {
+  animation: buizz-soft-slide-up 520ms ease both;
+}
+
+.buizz-dashboard-enter {
+  animation: buizz-dashboard-fade-up 420ms ease both;
+}
+
+.buizz-dashboard-glow {
+  animation: buizz-dashboard-glow 4.5s ease-in-out infinite;
+}
+
+/* Effects */
+.buizz-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.buizz-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 0.28),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+.buizz-hover-lift {
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.buizz-hover-lift:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 70px rgb(var(--brand-primary-rgb) / 0.18);
+}
+
+.buizz-scroll-fade {
+  position: relative;
+}
+
+.buizz-scroll-fade::before,
+.buizz-scroll-fade::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  z-index: 10;
+  height: 100%;
+  width: 2.5rem;
+}
+
+.buizz-scroll-fade::before {
+  left: 0;
+  background: linear-gradient(to right, var(--app-background), transparent);
+}
+
+.buizz-scroll-fade::after {
+  right: 0;
+  background: linear-gradient(to left, var(--app-background), transparent);
+}
+
+/* Dashboard cards */
+.buizz-dashboard-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--app-elevated) 94%, transparent);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.buizz-dashboard-card::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: -5rem;
+  width: 3.5rem;
+  transform: rotate(12deg);
+  background: rgb(255 255 255 / 0.22);
+  filter: blur(12px);
+  opacity: 0;
+  transition:
+    left 650ms ease,
+    opacity 220ms ease;
+  pointer-events: none;
+}
+
+.buizz-dashboard-card:hover {
+  transform: translateY(-4px);
+  border-color: rgb(var(--brand-primary-rgb) / 0.35);
+  box-shadow: 0 24px 70px rgb(var(--brand-primary-rgb) / 0.16);
+}
+
+.buizz-dashboard-card:hover::after {
+  left: 120%;
+  opacity: 1;
+}
+
+
+
+@keyframes buizz-logo-breathe {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.04);
+  }
+}
+
+@keyframes buizz-logo-ring {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes buizz-logo-shine {
+  0% {
+    transform: translateX(-140%) rotate(18deg);
+  }
+  55%, 100% {
+    transform: translateX(160%) rotate(18deg);
+  }
+}
+
+@keyframes buizz-logo-dot-left {
+  0%, 100% {
+    transform: translate(-72px, 0) scale(0.8);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(-46px, -18px) scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes buizz-logo-dot-right {
+  0%, 100% {
+    transform: translate(72px, 0) scale(0.8);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(46px, 18px) scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes buizz-logo-bar {
+  0%, 100% {
+    height: 34px;
+    transform: translateY(0) rotate(-8deg);
+  }
+  50% {
+    height: 58px;
+    transform: translateY(-10px) rotate(8deg);
+  }
+}
+
+@keyframes buizz-logo-loader-line {
+  0% {
+    transform: translateX(-100%);
+  }
+  50%, 100% {
+    transform: translateX(220%);
+  }
+}
+
+.buizz-logo-breathe {
+  animation: buizz-logo-breathe 2.6s ease-in-out infinite;
+}
+
+.buizz-logo-ring {
+  animation: buizz-logo-ring 5s linear infinite;
+}
+
+.buizz-logo-shine {
+  animation: buizz-logo-shine 2.2s ease-in-out infinite;
+}
+
+.buizz-logo-dot-left {
+  animation: buizz-logo-dot-left 2.4s ease-in-out infinite;
+}
+
+.buizz-logo-dot-right {
+  animation: buizz-logo-dot-right 2.4s ease-in-out infinite;
+}
+
+.buizz-logo-bar {
+  animation: buizz-logo-bar 1.5s ease-in-out infinite;
+}
+
+.buizz-logo-loader-line {
+  animation: buizz-logo-loader-line 1.15s ease-in-out infinite;
+}
+
+@keyframes buizz-splash-float {
+  0%, 100% {
+    transform: translateY(0) scale(1) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-14px) scale(1.025) rotate(1deg);
+  }
+}
+
+@keyframes buizz-splash-ticket-left {
+  0%, 100% {
+    transform: translate(-86px, 32px) rotate(-18deg) scale(0.92);
+  }
+  50% {
+    transform: translate(-62px, 8px) rotate(-9deg) scale(1);
+  }
+}
+
+@keyframes buizz-splash-ticket-right {
+  0%, 100% {
+    transform: translate(86px, 34px) rotate(18deg) scale(0.92);
+  }
+  50% {
+    transform: translate(62px, 8px) rotate(9deg) scale(1);
+  }
+}
+
+@keyframes buizz-splash-ticket-gold {
+  0%, 100% {
+    transform: translate(0, 58px) rotate(0deg) scale(0.9);
+    opacity: 0.78;
+  }
+  50% {
+    transform: translate(0, 34px) rotate(3deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes buizz-splash-ring {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes buizz-splash-shine {
+  0% {
+    transform: translateX(-160%) rotate(18deg);
+  }
+  55%, 100% {
+    transform: translateX(180%) rotate(18deg);
+  }
+}
+
+@keyframes buizz-splash-dot {
+  0%, 100% {
+    transform: translateY(0) scale(0.82);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateY(-9px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes buizz-splash-progress {
+  0% {
+    transform: translateX(-112%);
+  }
+  55%, 100% {
+    transform: translateX(215%);
+  }
+}
+
+.buizz-splash-screen {
+  background:
+    radial-gradient(circle at 50% 34%, rgb(var(--brand-primary-rgb) / 0.18), transparent 24rem),
+    radial-gradient(circle at 62% 34%, rgb(var(--brand-secondary-rgb) / 0.16), transparent 26rem),
+    radial-gradient(circle at 42% 62%, rgb(246 196 83 / 0.10), transparent 22rem),
+    linear-gradient(180deg, var(--app-background), color-mix(in srgb, var(--app-background) 88%, var(--color-brand-primary)));
+}
+
+.dark .buizz-splash-screen {
+  background:
+    radial-gradient(circle at 50% 34%, rgb(var(--brand-primary-rgb) / 0.24), transparent 24rem),
+    radial-gradient(circle at 62% 34%, rgb(var(--brand-secondary-rgb) / 0.24), transparent 26rem),
+    radial-gradient(circle at 42% 62%, rgb(246 196 83 / 0.08), transparent 22rem),
+    #08000b;
+}
+
+.buizz-splash-logo-card {
+  animation: buizz-splash-float 2.5s ease-in-out infinite;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.96), rgb(255 255 255 / 0.86));
+  border: 1px solid rgb(var(--brand-primary-rgb) / 0.22);
+  box-shadow:
+    0 34px 100px rgb(var(--brand-primary-rgb) / 0.26),
+    0 18px 60px rgb(var(--brand-secondary-rgb) / 0.18),
+    0 1px 0 rgb(255 255 255 / 0.65) inset;
+}
+
+.dark .buizz-splash-logo-card {
+  background:
+    linear-gradient(135deg, rgb(18 0 24 / 0.96), rgb(27 16 36 / 0.92));
+  border-color: rgb(var(--brand-primary-rgb) / 0.34);
+  box-shadow:
+    0 34px 110px rgb(var(--brand-primary-rgb) / 0.24),
+    0 18px 70px rgb(0 0 0 / 0.45),
+    0 1px 0 rgb(255 255 255 / 0.08) inset;
+}
+
+.buizz-splash-ticket-left {
+  animation: buizz-splash-ticket-left 2.6s ease-in-out infinite;
+}
+
+.buizz-splash-ticket-right {
+  animation: buizz-splash-ticket-right 2.6s ease-in-out infinite;
+}
+
+.buizz-splash-ticket-gold {
+  animation: buizz-splash-ticket-gold 2.6s ease-in-out infinite;
+}
+
+.buizz-splash-ring {
+  animation: buizz-splash-ring 7s linear infinite;
+}
+
+.buizz-splash-shine {
+  animation: buizz-splash-shine 2.1s ease-in-out infinite;
+}
+
+.buizz-splash-dot {
+  animation: buizz-splash-dot 0.95s ease-in-out infinite;
+}
+
+.buizz-splash-progress {
+  animation: buizz-splash-progress 1.05s ease-in-out infinite;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes buizz-footer-note-float {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--rotate, 0deg));
+    opacity: 0.42;
+  }
+  50% {
+    transform: translateY(-14px) rotate(calc(var(--rotate, 0deg) + 4deg));
+    opacity: 1;
+  }
+}
+
+@keyframes buizz-footer-line-move {
+  0% {
+    transform: translateX(-30%);
+  }
+  100% {
+    transform: translateX(30%);
+  }
+}
+
+.buizz-footer-note-float {
+  animation: buizz-footer-note-float 4.2s ease-in-out infinite;
+}
+
+.buizz-footer-line-move {
+  animation: buizz-footer-line-move 6s ease-in-out infinite alternate;
+}
+
+
+
+.buizz-site-shell {
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
+  background: var(--app-background);
+  color: var(--app-foreground);
+}
+
+.buizz-site-container {
+  width: min(100%, 1680px);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3vw, 3.5rem);
+}
+
+.buizz-site-container-wide {
+  width: min(100%, 1840px);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3.5vw, 4rem);
+}
+
+.buizz-section-space {
+  margin-top: clamp(2rem, 4vw, 4.5rem);
+}
+
+@media (min-width: 1800px) {
+  .buizz-site-container {
+    width: min(100%, 1760px);
+  }
+
+  .buizz-site-container-wide {
+    width: min(100%, 1920px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   PUBLIC WEBSITE LAYOUT OVERRIDES
+   Use these helpers across Home, listing, detail, blog, about, contact,
+   booking, profile, and auth pages for consistent premium spacing.
+   -------------------------------------------------------------------------- */
+.buizz-public-page,
+.buizz-site-shell {
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
+  background: var(--color-page-gradient);
+  color: var(--app-foreground);
+}
+
+.buizz-site-container {
+  width: min(100%, 1680px);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3vw, 3.5rem);
+}
+
+.buizz-site-container-wide {
+  width: min(100%, 1920px);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3.5vw, 4rem);
+}
+
+.buizz-public-section,
+.buizz-section-space {
+  margin-top: clamp(2rem, 4vw, 4.5rem);
+}
+
+.buizz-public-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: clamp(1.75rem, 3vw, 3rem);
+  background:
+    radial-gradient(circle at 18% 15%, rgb(var(--brand-primary-rgb) / 0.16), transparent 22rem),
+    radial-gradient(circle at 88% 16%, rgb(var(--brand-secondary-rgb) / 0.14), transparent 24rem),
+    color-mix(in srgb, var(--app-elevated) 90%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+.buizz-public-card,
+.buizz-card {
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-3xl);
+  background: color-mix(in srgb, var(--app-elevated) 92%, transparent);
+  color: var(--app-foreground);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
+}
+
+.buizz-public-card-soft,
+.buizz-subtle-surface {
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-2xl);
+  background: var(--app-subtle);
+  color: var(--app-foreground);
+}
+
+.buizz-public-title {
+  color: var(--app-foreground);
+  font-weight: 950;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.buizz-public-muted {
+  color: var(--app-muted);
+  font-weight: 650;
+}
+
+.buizz-public-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  border: 1px solid rgb(var(--brand-primary-rgb) / 0.18);
+  border-radius: 999px;
+  background: rgb(var(--brand-primary-rgb) / 0.08);
+  padding: 0.5rem 0.85rem;
+  color: var(--color-brand-primary);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.buizz-public-glass {
+  border: 1px solid color-mix(in srgb, var(--app-border) 82%, transparent);
+  background: color-mix(in srgb, var(--app-elevated) 78%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(22px);
+}
+
+.buizz-public-grid {
+  display: grid;
+  gap: clamp(0.9rem, 1.4vw, 1.35rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+.buizz-public-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(14rem, 20rem);
+  gap: 1rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline mandatory;
+  padding-bottom: 0.5rem;
+  scrollbar-width: none;
+}
+
+.buizz-public-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.buizz-public-rail > * {
+  scroll-snap-align: start;
+}
+
+.buizz-public-image {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  background: var(--app-subtle);
+}
+
+.buizz-public-chip {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  background: var(--app-elevated);
+  padding-inline: 0.75rem;
+  color: var(--app-foreground);
+  font-size: 0.75rem;
+  font-weight: 900;
+  box-shadow: var(--shadow-xs);
+}
+
+.buizz-public-chip-primary {
+  border-color: rgb(var(--brand-primary-rgb) / 0.18);
+  background: rgb(var(--brand-primary-rgb) / 0.10);
+  color: var(--color-brand-primary);
+}
+
+.buizz-premium-divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--app-border), transparent);
+}
+
+/* Better default buttons on small screens */
+@media (max-width: 640px) {
+  .buizz-site-container,
+  .buizz-site-container-wide {
+    padding-inline: 1rem;
+  }
+
+  .buizz-public-title {
+    letter-spacing: -0.04em;
+  }
+
+  .buizz-button-primary,
+  .buizz-button-secondary,
+  .buizz-button-ghost,
+  .buizz-button-solid {
+    min-height: 2.65rem;
+    padding-inline: 0.9rem;
+    font-size: 0.8125rem;
+  }
+
+  .buizz-public-rail {
+    grid-auto-columns: minmax(12.5rem, 78vw);
+  }
+}
+
+@media (min-width: 1800px) {
+  .buizz-site-container {
+    width: min(100%, 1760px);
+  }
+
+  .buizz-site-container-wide {
+    width: min(100%, 2040px);
+  }
+}
+
+@supports (padding: max(0px)) {
+  .buizz-safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+
+
+/* --------------------------------------------------------------------------
+   PUBLIC APP COMPACT RESPONSIVE HELPERS
+   Use these on auth/profile/customer pages so all public pages follow the
+   same Buizz color system without hardcoded page gradients.
+   -------------------------------------------------------------------------- */
+.buizz-public-shell {
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
+  background: var(--color-page-gradient);
+  color: var(--app-foreground);
+}
+
+.buizz-public-panel {
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-elevated) 92%, transparent);
+  color: var(--app-foreground);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
+}
+
+.buizz-public-soft-panel {
+  border: 1px solid var(--app-border);
+  background: var(--app-subtle);
+  color: var(--app-foreground);
+}
+
+.buizz-public-action-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+}
+
+@media (max-width: 480px) {
+  .buizz-public-panel,
+  .buizz-public-card,
+  .buizz-card {
+    border-radius: 1.5rem;
+  }
+}
+
+
+/* Profile page color and responsive fixes */
+.buizz-profile-page {
+  background: var(--color-page-gradient);
+  color: var(--app-foreground);
+}
+
+.buizz-profile-card {
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-elevated) 96%, transparent);
+  color: var(--app-foreground);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
+}
+
+.buizz-profile-soft-card {
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-subtle) 94%, transparent);
+  color: var(--app-foreground);
+}
+
+@media (max-width: 380px) {
+  .buizz-profile-card,
+  .buizz-profile-soft-card {
+    border-radius: 1.35rem;
+  }
+}
+
+
+@media (max-width: 380px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  main,
+  section,
+  article,
+  div {
+    min-width: 0;
+  }
+
+  .buizz-dashboard-card,
+  .buizz-dashboard-enter {
+    max-width: 100%;
+  }
+}
+
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  body {
+    min-width: 0 !important;
+  }
+
+  main,
+  section,
+  article,
+  aside,
+  header,
+  nav,
+  div {
+    max-width: 100%;
+  }
+
+  .buizz-dashboard-card,
+  .buizz-dashboard-enter {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  body {
+    min-width: 0 !important;
+  }
+
+  main,
+  section,
+  article,
+  aside,
+  header,
+  nav,
+  div {
+    max-width: 100%;
+  }
+
+  .buizz-dashboard-card,
+  .buizz-dashboard-enter {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+}
+
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+
+
+
+  .seat-map-mobile-shell {
+    width: 100%;
+  }
+
+  .seat-map-mobile-shell > * {
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    .seat-map-mobile-shell {
+      margin-left: -0.25rem;
+      margin-right: -0.25rem;
+    }
+
+    .seat-map-mobile-shell table,
+    .seat-map-mobile-shell svg,
+    .seat-map-mobile-shell canvas {
+      max-width: none;
+    }
+  }
+
+/* --------------------------------------------------------------------------
+   Booking flow compact mobile fixes
+   Keeps the booking, seat map, review, and ticket preview production-ready.
+   -------------------------------------------------------------------------- */
+.review-ticket-scale {
+  transform: scale(0.42);
+  transform-origin: top left;
+  width: 238%;
+  margin-bottom: -58%;
+}
+
+@media (min-width: 640px) {
+  .review-ticket-scale {
+    transform: scale(0.56);
+    width: 179%;
+    margin-bottom: -42%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .review-ticket-scale {
+    transform: scale(0.72);
+    width: 139%;
+    margin-bottom: -25%;
+  }
+}
+
+@media (min-width: 1280px) {
+  .review-ticket-scale {
+    transform: scale(0.84);
+    width: 119%;
+    margin-bottom: -13%;
+  }
+}
+
+.seat-map-mobile-shell {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.seat-map-mobile-shell > * {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .seat-map-mobile-shell {
+    margin-inline: -0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .seat-map-mobile-shell > * {
+    width: max-content;
+    min-width: 680px;
+    max-width: none;
+  }
+
+  .seat-map-mobile-shell table,
+  .seat-map-mobile-shell svg,
+  .seat-map-mobile-shell canvas {
+    max-width: none;
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   Booking mobile polish: compact review ticket + seat-map shell
+   -------------------------------------------------------------------------- */
+.review-ticket-scale {
+  transform: none !important;
+  width: 100% !important;
+  margin-bottom: 0 !important;
+}
+
+.seat-map-mobile-shell {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.seat-map-mobile-shell > * {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .seat-map-mobile-shell {
+    margin-inline: -0.35rem;
+    padding-inline: 0.35rem;
+  }
+
+  .seat-map-mobile-shell table,
+  .seat-map-mobile-shell svg,
+  .seat-map-mobile-shell canvas {
+    max-width: none;
+  }
+}

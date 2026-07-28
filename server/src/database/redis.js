@@ -4,6 +4,12 @@ const logger = require('../utils/logger');
 let redisClient;
 
 const connectRedis = async () => {
+  if (process.env.REDIS_DISABLED === 'true' || process.env.DISABLE_REDIS === 'true') {
+    logger.warn('Redis disabled by environment; continuing without Redis.');
+    redisClient = null;
+    return null;
+  }
+
   try {
     redisClient = new Redis({
       host: process.env.REDIS_HOST || '127.0.0.1',
@@ -20,16 +26,14 @@ const connectRedis = async () => {
     
     return redisClient;
   } catch (error) {
-    logger.error('Redis connection failed:', error);
-    throw error;
+    logger.warn(`Redis connection failed: ${error.message}. Continuing without Redis.`);
+    redisClient = null;
+    return null;
   }
 };
 
 const getRedisClient = () => {
-  if (!redisClient) {
-    throw new Error('Redis client not initialized');
-  }
-  return redisClient;
+  return redisClient || null;
 };
 
 module.exports = connectRedis;

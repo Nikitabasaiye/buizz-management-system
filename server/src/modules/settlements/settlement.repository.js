@@ -11,10 +11,11 @@ const SETTLEMENT_SELECT = `
 const getPool = () => getMySQLPool();
 
 const findBankAccountByOrganizer = async (organizerId) => {
+  const params = [organizerId];
   const [rows] = await getPool().query(
     `SELECT * FROM organizer_bank_accounts
      WHERE organizer_id = ? AND is_active = 1`,
-    [organizerId]
+    params
   );
   return rows[0] || null;
 };
@@ -61,20 +62,22 @@ const upsertBankAccount = async (organizerId, data) => {
 };
 
 const findPaymentForSettlement = async (orderId) => {
+  const params = [orderId];
   const [rows] = await getPool().query(
     `SELECT p.*, e.organizer_id, e.end_date, e.status as event_status
      FROM payments p
      JOIN events e ON p.event_id = e.event_id
      WHERE p.order_id = ?`,
-    [orderId]
+    params
   );
   return rows[0] || null;
 };
 
 const findSettlementItemByPaymentId = async (paymentId) => {
+  const params = [paymentId];
   const [rows] = await getPool().query(
     'SELECT * FROM settlement_items WHERE payment_id = ?',
-    [paymentId]
+    params
   );
   return rows[0] || null;
 };
@@ -116,6 +119,7 @@ const cancelSettlementItemByOrderId = async (orderId) => {
   try {
     await connection.beginTransaction();
 
+    const params = [orderId];
     const [items] = await connection.query(
       `SELECT si.*, os.status as settlement_status
        FROM settlement_items si
@@ -123,7 +127,7 @@ const cancelSettlementItemByOrderId = async (orderId) => {
        LEFT JOIN organizer_settlements os ON si.settlement_id = os.settlement_id
        WHERE p.order_id = ?
        FOR UPDATE`,
-      [orderId]
+      params
     );
 
     const item = items[0];
@@ -145,6 +149,7 @@ const cancelSettlementItemByOrderId = async (orderId) => {
     );
 
     if (item.settlement_id && ['pending', 'processing'].includes(item.settlement_status)) {
+      const totalsParams = [item.settlement_id];
       const [[totals]] = await connection.query(
         `SELECT
            COUNT(*) as item_count,
@@ -154,7 +159,7 @@ const cancelSettlementItemByOrderId = async (orderId) => {
            COALESCE(MAX(platform_fee_percent), 0) as platform_fee_percent
          FROM settlement_items
          WHERE settlement_id = ? AND status IN ('included', 'settled')`,
-        [item.settlement_id]
+        totalsParams
       );
 
       if (Number(totals.item_count) === 0) {
@@ -215,6 +220,7 @@ const getEligibleGroups = async (filters = {}) => {
     params.push(filters.eventId);
   }
 
+  const queryParams = [...params];
   const [rows] = await getPool().query(
     `SELECT
        si.organizer_id,
@@ -235,13 +241,14 @@ const getEligibleGroups = async (filters = {}) => {
      WHERE ${where}
      GROUP BY si.organizer_id, si.event_id, e.title, e.end_date, u.name, u.email
      ORDER BY first_eligible_at ASC`,
-    params
+    queryParams
   );
 
   return rows;
 };
 
 const getOrganizerSummary = async (organizerId) => {
+  const params = [organizerId];
   const [[itemTotals]] = await getPool().query(
     `SELECT
        COUNT(*) as total_payment_count,
@@ -255,7 +262,7 @@ const getOrganizerSummary = async (organizerId) => {
        COALESCE(SUM(CASE WHEN status = 'cancelled' THEN net_amount ELSE 0 END), 0) as cancelled_net_amount
      FROM settlement_items
      WHERE organizer_id = ?`,
-    [organizerId]
+    params
   );
 
   const [settlementRows] = await getPool().query(
@@ -266,7 +273,7 @@ const getOrganizerSummary = async (organizerId) => {
      FROM organizer_settlements
      WHERE organizer_id = ?
      GROUP BY status`,
-    [organizerId]
+    params
   );
 
   const [upcomingRows] = await getPool().query(
@@ -283,7 +290,7 @@ const getOrganizerSummary = async (organizerId) => {
      GROUP BY si.event_id, e.title, e.status
      ORDER BY eligible_at ASC
      LIMIT 10`,
-    [organizerId]
+    params
   );
 
   return {
@@ -300,6 +307,7 @@ const createSettlementFromEligibleItems = async ({ organizerId, eventId, created
   try {
     await connection.beginTransaction();
 
+    const itemsParams = [organizerId, eventId];
     const [items] = await connection.query(
       `SELECT si.*
        FROM settlement_items si
@@ -310,7 +318,7 @@ const createSettlementFromEligibleItems = async ({ organizerId, eventId, created
          AND si.eligible_at <= NOW()
          AND e.status = 'completed'
        FOR UPDATE`,
-      [organizerId, eventId]
+      itemsParams
     );
 
     if (items.length === 0) {
@@ -318,11 +326,12 @@ const createSettlementFromEligibleItems = async ({ organizerId, eventId, created
       return null;
     }
 
+    const existingParams = [organizerId, eventId];
     const [existing] = await connection.query(
       `SELECT settlement_id FROM organizer_settlements
        WHERE organizer_id = ? AND event_id = ? AND status IN ('pending', 'processing', 'paid')
        LIMIT 1`,
-      [organizerId, eventId]
+      existingParams
     );
 
     if (existing[0]) {
@@ -330,13 +339,14 @@ const createSettlementFromEligibleItems = async ({ organizerId, eventId, created
       return { settlement_id: existing[0].settlement_id, alreadyExists: true };
     }
 
+    const bankParams = [organizerId];
     const [bankRows] = await connection.query(
       `SELECT oba.*, u.kyc_status, u.bank_verification_status
        FROM organizer_bank_accounts oba
        JOIN users u ON oba.organizer_id = u.user_id
        WHERE oba.organizer_id = ? AND oba.is_active = 1
        LIMIT 1`,
-      [organizerId]
+      bankParams
     );
 
     const bankAccount = bankRows[0];
@@ -424,13 +434,14 @@ const createSettlementsForAllEligibleGroups = async ({ createdBy } = {}) => {
 };
 
 const findSettlementById = async (settlementId) => {
+  const params = [settlementId];
   const [rows] = await getPool().query(
     `SELECT ${SETTLEMENT_SELECT}
      FROM organizer_settlements s
      JOIN users u ON s.organizer_id = u.user_id
      JOIN events e ON s.event_id = e.event_id
      WHERE s.settlement_id = ?`,
-    [settlementId]
+    params
   );
   return rows[0] || null;
 };
@@ -455,6 +466,7 @@ const listSettlements = async (filters = {}) => {
   const limit = Number(filters.limit || 20);
   const offset = (Number(filters.page || 1) - 1) * limit;
 
+  const queryParams = [...params, limit, offset];
   const [rows] = await getPool().query(
     `SELECT ${SETTLEMENT_SELECT}
      FROM organizer_settlements s
@@ -463,7 +475,7 @@ const listSettlements = async (filters = {}) => {
      WHERE ${where}
      ORDER BY s.created_at DESC
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    queryParams
   );
 
   const [[count]] = await getPool().query(
@@ -483,6 +495,7 @@ const listSettlements = async (filters = {}) => {
 };
 
 const listSettlementItems = async (settlementId) => {
+  const params = [settlementId];
   const [rows] = await getPool().query(
     `SELECT si.*, p.order_id, p.transaction_id, p.created_at as payment_created_at,
             b.booking_number
@@ -491,7 +504,7 @@ const listSettlementItems = async (settlementId) => {
      LEFT JOIN bookings b ON si.booking_id = b.booking_id
      WHERE si.settlement_id = ?
      ORDER BY si.created_at ASC`,
-    [settlementId]
+    params
   );
   return rows;
 };

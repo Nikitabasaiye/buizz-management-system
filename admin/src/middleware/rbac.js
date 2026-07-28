@@ -1,9 +1,11 @@
 const jwt = require('jsonwebtoken');
 const { AppError } = require('./errorHandler');
-const { getRedisClient } = require('../database/redis');
 const userRepository = require('../modules/users/user.repository');
 const { hasPermission, hasAnyPermission, hasAllPermissions } = require('../config/permissions');
 const logger = require('../utils/logger');
+const { isTokenBlacklisted } = require('../utils/auth.helper');
+
+const userRateLimitStore = new Map();
 
 /**
  * Authenticate user with JWT token
@@ -20,15 +22,11 @@ const authenticate = async (req, res, next) => {
 
     // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Check if token is blacklisted (logout)
-    const redis = getRedisClient();
-    const isBlacklisted = await redis.get(`blacklist:${token}`);
-    
-    if (isBlacklisted) {
+
+    if (await isTokenBlacklisted(token)) {
       return next(new AppError('Token has been revoked', 401));
     }
-
+    
     // Load user from database
     const user = await userRepository.findById(decoded.id);
     
@@ -100,6 +98,28 @@ const requirePermission = (...permissions) => {
 
     if (!hasRequiredPermission) {
       logger.warn(`Permission denied for ${req.user.email}: Required ${permissions.join(', ')}`);
+      return next(new AppError('Insufficient permissions', 403));
+    }
+
+    next();
+  };
+};
+
+/**
+ * Check permission for resource-action pair
+ * @param {string} resource - Resource name (e.g., 'reviews')
+ * @param {string} action - Action name (e.g., 'read', 'update', 'delete')
+ */
+const checkPermission = (resource, action) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return next(new AppError('Authentication required', 401));
+    }
+
+    const permission = `${resource}:${action}`;
+    
+    if (!hasPermission(req.user.role, permission)) {
+      logger.warn(`Permission denied for ${req.user.email}: Required ${permission}`);
       return next(new AppError('Insufficient permissions', 403));
     }
 
@@ -228,14 +248,19 @@ const userRateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
       return next();
     }
 
-    const redis = getRedisClient();
     const key = `ratelimit:user:${req.user.id}`;
-    
-    const requests = await redis.incr(key);
-    
-    if (requests === 1) {
-      await redis.expire(key, Math.floor(windowMs / 1000));
-    }
+
+    const now = Date.now();
+    const current = userRateLimitStore.get(key);
+    const nextWindowEndsAt = now + windowMs;
+    const nextRateLimit =
+      current && current.expiresAt > now
+        ? { count: current.count + 1, expiresAt: current.expiresAt }
+        : { count: 1, expiresAt: nextWindowEndsAt };
+
+    userRateLimitStore.set(key, nextRateLimit);
+
+    const requests = nextRateLimit.count;
 
     if (requests > maxRequests) {
       return next(new AppError('Too many requests, please try again later', 429));
@@ -306,6 +331,7 @@ module.exports = {
   authenticate,
   authorize,
   requirePermission,
+  checkPermission,
   requireAnyPermission,
   authorizeSelfOrRoles,
   requireVerifiedEmail,

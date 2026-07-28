@@ -149,6 +149,11 @@ const logSecurityEvent = (eventType) => {
  * Prevent NoSQL injection
  */
 const preventNoSQLInjection = (req, res, next) => {
+  // Exclude webhook routes (Meta sends payloads with $ operators)
+  if (req.path.startsWith('/api/webhooks')) {
+    return next();
+  }
+
   const checkForInjection = (obj) => {
     if (typeof obj === 'object' && obj !== null) {
       for (const key in obj) {
@@ -177,7 +182,10 @@ const preventNoSQLInjection = (req, res, next) => {
  * Require HTTPS in production
  */
 const requireHTTPS = (req, res, next) => {
-  if (process.env.NODE_ENV === 'production' && !req.secure) {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const isHttps = req.secure || forwardedProto === 'https';
+
+  if (process.env.NODE_ENV === 'production' && !isHttps) {
     return res.redirect(301, `https://${req.headers.host}${req.url}`);
   }
   next();

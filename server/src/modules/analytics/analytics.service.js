@@ -2,6 +2,141 @@ const pool = require('../../database/mysql');
 const { AppError } = require('../../middleware/errorHandler');
 
 class AnalyticsService {
+  async ensureVisitorTables(connection) {
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS visitor_sessions (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        visitor_id VARCHAR(128) NOT NULL,
+        session_id VARCHAR(128) NOT NULL,
+        user_id BIGINT UNSIGNED NULL,
+        user_role VARCHAR(40) NULL,
+        path VARCHAR(512) NULL,
+        referrer VARCHAR(512) NULL,
+        user_agent VARCHAR(512) NULL,
+        ip_address VARCHAR(64) NULL,
+        first_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        visit_count INT UNSIGNED NOT NULL DEFAULT 1,
+        PRIMARY KEY (id),
+        UNIQUE KEY visitor_sessions_session_unique (session_id),
+        KEY visitor_sessions_visitor_index (visitor_id),
+        KEY visitor_sessions_role_index (user_role),
+        KEY visitor_sessions_last_seen_index (last_seen_at)
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS visitor_page_views (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        visitor_id VARCHAR(128) NOT NULL,
+        session_id VARCHAR(128) NOT NULL,
+        user_id BIGINT UNSIGNED NULL,
+        user_role VARCHAR(40) NULL,
+        path VARCHAR(512) NOT NULL,
+        referrer VARCHAR(512) NULL,
+        user_agent VARCHAR(512) NULL,
+        ip_address VARCHAR(64) NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY visitor_page_views_session_index (session_id),
+        KEY visitor_page_views_path_index (path),
+        KEY visitor_page_views_created_index (created_at)
+      )
+    `);
+  }
+
+  normalizeVisitorRole(role) {
+    const normalized = String(role || 'guest').trim().toLowerCase().replace('-', '_');
+    if (normalized === 'customer') return 'user';
+    if (normalized === 'super_admin') return 'super_admin';
+    if (['guest', 'user', 'organizer', 'admin', 'super_admin', 'checkin_staff', 'influencer'].includes(normalized)) {
+      return normalized;
+    }
+    return 'guest';
+  }
+
+  async trackVisitor(payload, requestMeta = {}) {
+    const connection = await pool.getConnection();
+    try {
+      await this.ensureVisitorTables(connection);
+
+      const visitorId = String(payload.visitorId || '').trim().slice(0, 128);
+      const sessionId = String(payload.sessionId || '').trim().slice(0, 128);
+      if (!visitorId || !sessionId) throw new AppError('visitorId and sessionId are required', 400);
+
+      const userId = payload.userId && Number.isFinite(Number(payload.userId)) ? Number(payload.userId) : null;
+      const userRole = this.normalizeVisitorRole(payload.userRole);
+      const path = String(payload.path || '/').trim().slice(0, 512) || '/';
+      const referrer = String(payload.referrer || '').trim().slice(0, 512) || null;
+      const userAgent = String(requestMeta.userAgent || payload.userAgent || '').trim().slice(0, 512) || null;
+      const ipAddress = String(requestMeta.ipAddress || '').trim().slice(0, 64) || null;
+
+      await connection.execute(
+        `INSERT INTO visitor_sessions
+           (visitor_id, session_id, user_id, user_role, path, referrer, user_agent, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           user_id = COALESCE(VALUES(user_id), user_id),
+           user_role = VALUES(user_role),
+           path = VALUES(path),
+           referrer = COALESCE(VALUES(referrer), referrer),
+           user_agent = COALESCE(VALUES(user_agent), user_agent),
+           ip_address = COALESCE(VALUES(ip_address), ip_address),
+           visit_count = visit_count + 1,
+           last_seen_at = CURRENT_TIMESTAMP`,
+        [visitorId, sessionId, userId, userRole, path, referrer, userAgent, ipAddress]
+      );
+
+      await connection.execute(
+        `INSERT INTO visitor_page_views
+           (visitor_id, session_id, user_id, user_role, path, referrer, user_agent, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [visitorId, sessionId, userId, userRole, path, referrer, userAgent, ipAddress]
+      );
+
+      return { tracked: true };
+    } finally {
+      connection.release();
+    }
+  }
+
+  async getVisitorSummary(days = 30) {
+    const connection = await pool.getConnection();
+    try {
+      await this.ensureVisitorTables(connection);
+      const safeDays = Math.min(Math.max(parseInt(days, 10) || 30, 1), 365);
+
+      const [totals] = await connection.execute(
+        `SELECT
+           COUNT(DISTINCT visitor_id) AS total_visitors,
+           COUNT(DISTINCT session_id) AS total_sessions,
+           SUM(visit_count) AS total_visits,
+           COUNT(DISTINCT CASE WHEN user_role = 'guest' THEN visitor_id END) AS guest_visitors,
+           COUNT(DISTINCT CASE WHEN user_role = 'user' THEN user_id END) AS signed_users,
+           COUNT(DISTINCT CASE WHEN user_role = 'organizer' THEN user_id END) AS signed_organizers,
+           COUNT(DISTINCT CASE WHEN user_role = 'admin' THEN user_id END) AS signed_admins,
+           COUNT(DISTINCT CASE WHEN user_role = 'super_admin' THEN user_id END) AS signed_super_admins
+         FROM visitor_sessions
+         WHERE last_seen_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`,
+        [safeDays]
+      );
+
+      const [topPages] = await connection.execute(
+        `SELECT path, COUNT(*) AS views, COUNT(DISTINCT visitor_id) AS visitors
+         FROM visitor_page_views
+         WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+         GROUP BY path
+         ORDER BY views DESC
+         LIMIT 10`,
+        [safeDays]
+      );
+
+      return { days: safeDays, totals: totals[0], topPages };
+    } finally {
+      connection.release();
+    }
+  }
+
   async getDashboardStats(userId, userRole) {
     const connection = await pool.getConnection();
     try {

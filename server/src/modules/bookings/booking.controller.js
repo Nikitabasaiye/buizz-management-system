@@ -200,6 +200,30 @@ const getEventAttendees = async (req, res, next) => {
   }
 };
 
+/**
+ * Get all bookings (admin/super admin only)
+ */
+const getAllBookings = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 100, status, eventId } = req.query;
+    
+    const result = await bookingService.getAllBookings(
+      req.user.role,
+      parseInt(page),
+      parseInt(limit),
+      status,
+      eventId
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   initiateBooking,
   handlePhonePeCallback,
@@ -208,4 +232,5 @@ module.exports = {
   getUserBookings,
   getOrganizerBookings,
   getEventAttendees,
+  getAllBookings,
 };

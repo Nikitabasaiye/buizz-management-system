@@ -1,47 +1,40 @@
 const { getMySQLPool } = require('../../database/mysql');
 const bcrypt = require('bcryptjs');
-
-const ROLE_PREFIX = {
-  user: 'USR',
-  organizer: 'ORG',
-  admin: 'ADM',
-  super_admin: 'SAD',
-  influencer: 'INF',
-};
-
-const generateDisplayId = async (pool, role) => {
-  const prefix = ROLE_PREFIX[role] || 'USR';
-  const [rows] = await pool.query('SELECT COUNT(*) as count FROM users WHERE role = ?', [role]);
-  const seq = String(rows[0].count + 1).padStart(4, '0');
-  return `${prefix}-${seq}`;
-};
+const { USER_ROLES } = require('../../constants');
 
 const SEL = `user_id as id, display_id as displayId, name, email, phone, role,
-            organization_id as organizationId, avatar,
-            is_verified as isVerified, is_active as isActive,
+            organization_id as organizationId, avatar, google_id as googleId, facebook_id as facebookId,
+            is_verified as isVerified, is_email_verified as isEmailVerified,
+            is_phone_verified as isPhoneVerified, is_active as isActive,
             kyc_status as kycStatus, bank_verification_status as bankVerificationStatus,
             kyc_verified_at as kycVerifiedAt, kyc_verified_by as kycVerifiedBy,
             last_login as lastLogin, created_at as createdAt, updated_at as updatedAt`;
 
 const create = async (userData) => {
   const pool = getMySQLPool();
-  const hashedPassword = await bcrypt.hash(userData.password, 12);
-  const displayId = await generateDisplayId(pool, userData.role || 'user');
+  const hashedPassword = userData.password ? await bcrypt.hash(userData.password, 12) : null;
+
+  const values = [
+    userData.name,
+    userData.email,
+    hashedPassword,
+    userData.phone || null,
+    userData.role || USER_ROLES.CUSTOMER,
+    userData.organizationId || null,
+    userData.avatar || null,
+    userData.googleId || null,
+    userData.facebookId || null,
+    userData.isVerified ? 1 : 0,
+    userData.isEmailVerified ? 1 : 0,
+    userData.isPhoneVerified ? 1 : 0,
+  ];
 
   const [result] = await pool.query(
-    `INSERT INTO users (name, email, password, phone, role, organization_id, avatar, display_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      userData.name,
-      userData.email,
-      hashedPassword,
-      userData.phone || null,
-      userData.role || 'user',
-      userData.organizationId || null,
-      userData.avatar || null,
-      displayId,
-    ]
+    `INSERT INTO users (name, email, password, phone, role, organization_id, avatar, google_id, facebook_id, is_verified, is_email_verified, is_phone_verified)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    values
   );
+  await pool.query('UPDATE users SET display_id = ? WHERE user_id = ? AND display_id IS NULL', [result.insertId, result.insertId]);
 
   return await findById(result.insertId);
 };
@@ -68,12 +61,13 @@ const findByEmailWithPassword = async (email) => {
   const pool = getMySQLPool();
   const [rows] = await pool.query(
     `SELECT user_id as id, display_id as displayId, name, email, password, phone, role,
-            organization_id as organizationId, avatar,
+            organization_id as organizationId, avatar, google_id as googleId, facebook_id as facebookId,
             is_verified as isVerified, is_active as isActive,
+            is_email_verified as isEmailVerified, is_phone_verified as isPhoneVerified,
             kyc_status as kycStatus, bank_verification_status as bankVerificationStatus,
             kyc_verified_at as kycVerifiedAt, kyc_verified_by as kycVerifiedBy,
             last_login as lastLogin, created_at as createdAt, updated_at as updatedAt
-     FROM users WHERE email = ?`,
+     FROM users WHERE email = ? AND is_active = 1`,
     [email]
   );
 
@@ -97,6 +91,8 @@ const updateById = async (id, updateData) => {
   if (updateData.role !== undefined)           { fields.push('role = ?');           values.push(updateData.role); }
   if (updateData.isActive !== undefined)       { fields.push('is_active = ?');      values.push(updateData.isActive ? 1 : 0); }
   if (updateData.isVerified !== undefined)     { fields.push('is_verified = ?');    values.push(updateData.isVerified ? 1 : 0); }
+  if (updateData.isEmailVerified !== undefined) { fields.push('is_email_verified = ?'); values.push(updateData.isEmailVerified ? 1 : 0); }
+  if (updateData.isPhoneVerified !== undefined) { fields.push('is_phone_verified = ?'); values.push(updateData.isPhoneVerified ? 1 : 0); }
   if (updateData.organizationId !== undefined) { fields.push('organization_id = ?'); values.push(updateData.organizationId); }
 
   if (fields.length === 0) return await findById(id);
@@ -135,7 +131,13 @@ const findAll = async (options = {}) => {
   let whereClause = 'WHERE is_active = 1';
   const params = [];
 
-  if (role)   { whereClause += ' AND role = ?'; params.push(role); }
+  if (role === USER_ROLES.CUSTOMER || role === USER_ROLES.LEGACY_CUSTOMER) {
+    whereClause += ' AND role IN (?, ?)';
+    params.push(USER_ROLES.CUSTOMER, USER_ROLES.LEGACY_CUSTOMER);
+  } else if (role) {
+    whereClause += ' AND role = ?';
+    params.push(role);
+  }
   if (search) {
     whereClause += ' AND (name LIKE ? OR email LIKE ?)';
     params.push(`%${search}%`, `%${search}%`);
@@ -162,11 +164,53 @@ const findAll = async (options = {}) => {
   };
 };
 
+const findByGoogleId = async (googleId) => {
+  const pool = getMySQLPool();
+  const [rows] = await pool.query(
+    `SELECT ${SEL} FROM users WHERE google_id = ? AND is_active = 1`,
+    [googleId]
+  );
+  return rows[0] || null;
+};
+
+const findByFacebookId = async (facebookId) => {
+  const pool = getMySQLPool();
+  const [rows] = await pool.query(
+    `SELECT ${SEL} FROM users WHERE facebook_id = ? AND is_active = 1`,
+    [facebookId]
+  );
+  return rows[0] || null;
+};
+
+const findByPhone = async (phone) => {
+  const pool = getMySQLPool();
+  const [rows] = await pool.query(
+    `SELECT ${SEL} FROM users WHERE phone = ? AND is_active = 1`,
+    [phone]
+  );
+  return rows[0] || null;
+};
+
+const updateGoogleId = async (id, googleId) => {
+  const pool = getMySQLPool();
+  await pool.query('UPDATE users SET google_id = ? WHERE user_id = ?', [googleId, id]);
+};
+
+const updateFacebookId = async (id, facebookId) => {
+  const pool = getMySQLPool();
+  await pool.query('UPDATE users SET facebook_id = ? WHERE user_id = ?', [facebookId, id]);
+};
+
 module.exports = {
   create,
   findById,
   findByEmail,
   findByEmailWithPassword,
+  findByPhone,
+  findByGoogleId,
+  findByFacebookId,
+  updateGoogleId,
+  updateFacebookId,
   updateById,
   updateLastLogin,
   verifyUser,

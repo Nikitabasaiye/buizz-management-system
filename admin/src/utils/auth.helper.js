@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { getRedisClient } = require('../database/redis');
+
+const temporaryTokenStore = new Map();
+const blacklistedTokens = new Map();
 
 const generateAccessToken = (id, role) =>
   jwt.sign({ id, role, type: role }, process.env.JWT_SECRET, {
@@ -15,28 +17,39 @@ const generateRefreshToken = (id, role) =>
 const generateSecureToken = () => crypto.randomBytes(32).toString('hex');
 
 const blacklistToken = async (token) => {
-  const redis = getRedisClient();
-  await redis.setEx(`blacklist:${token}`, 900, 'true');
+  blacklistedTokens.set(token, Date.now() + 900 * 1000);
 };
 
 const isTokenBlacklisted = async (token) => {
-  const redis = getRedisClient();
-  return !!(await redis.get(`blacklist:${token}`));
+  const expiresAt = blacklistedTokens.get(token);
+  if (!expiresAt) return false;
+  if (expiresAt <= Date.now()) {
+    blacklistedTokens.delete(token);
+    return false;
+  }
+  return true;
 };
 
-const storeRedisToken = async (prefix, token, value, ttlSeconds = 3600) => {
-  const redis = getRedisClient();
-  await redis.setEx(`${prefix}:${token}`, ttlSeconds, String(value));
+const storeTemporaryToken = async (prefix, token, value, ttlSeconds = 3600) => {
+  temporaryTokenStore.set(`${prefix}:${token}`, {
+    value: String(value),
+    expiresAt: Date.now() + ttlSeconds * 1000,
+  });
 };
 
-const getRedisToken = async (prefix, token) => {
-  const redis = getRedisClient();
-  return redis.get(`${prefix}:${token}`);
+const getTemporaryToken = async (prefix, token) => {
+  const key = `${prefix}:${token}`;
+  const record = temporaryTokenStore.get(key);
+  if (!record) return null;
+  if (record.expiresAt <= Date.now()) {
+    temporaryTokenStore.delete(key);
+    return null;
+  }
+  return record.value;
 };
 
-const deleteRedisToken = async (prefix, token) => {
-  const redis = getRedisClient();
-  await redis.del(`${prefix}:${token}`);
+const deleteTemporaryToken = async (prefix, token) => {
+  temporaryTokenStore.delete(`${prefix}:${token}`);
 };
 
 module.exports = {
@@ -45,7 +58,7 @@ module.exports = {
   generateSecureToken,
   blacklistToken,
   isTokenBlacklisted,
-  storeRedisToken,
-  getRedisToken,
-  deleteRedisToken,
+  storeTemporaryToken,
+  getTemporaryToken,
+  deleteTemporaryToken,
 };

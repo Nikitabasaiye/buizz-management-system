@@ -15,7 +15,7 @@ const authenticate = async (req, res, next) => {
     
     // Check if token is blacklisted
     const redis = getRedisClient();
-    const isBlacklisted = await redis.get(`blacklist:${token}`);
+    const isBlacklisted = redis ? await redis.get(`blacklist:${token}`) : false;
     
     if (isBlacklisted) {
       return next(new AppError('Token is invalid', 401));

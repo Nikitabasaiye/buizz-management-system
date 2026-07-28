@@ -2,6 +2,12 @@ const mysql = require('mysql2/promise');
 const logger = require('../utils/logger');
 
 let pool;
+let status = {
+  connected: false,
+  schemaReady: false,
+  lastError: null,
+  connectedAt: null,
+};
 
 const hasMysqlConfig = () => Boolean(
   process.env.MYSQL_HOST &&
@@ -9,9 +15,12 @@ const hasMysqlConfig = () => Boolean(
   process.env.MYSQL_USER
 );
 
+const normalizeMysqlHost = (host) => (host === 'localhost' ? '127.0.0.1' : host);
+
 const connectMySQL = async () => {
   if (!hasMysqlConfig()) {
     const message = 'MySQL configuration is incomplete. Set MYSQL_HOST, MYSQL_DATABASE, MYSQL_USER, and MYSQL_PASSWORD.';
+    status = { ...status, connected: false, schemaReady: false, lastError: message };
     if (process.env.NODE_ENV === 'production') throw new Error(message);
     logger.warn(`${message} MySQL will be skipped in development.`);
     return null;
@@ -19,7 +28,7 @@ const connectMySQL = async () => {
 
   try {
     pool = mysql.createPool({
-      host: process.env.MYSQL_HOST,
+      host: normalizeMysqlHost(process.env.MYSQL_HOST),
       port: Number(process.env.MYSQL_PORT) || 3306,
       database: process.env.MYSQL_DATABASE,
       user: process.env.MYSQL_USER,
@@ -31,10 +40,38 @@ const connectMySQL = async () => {
     });
 
     await pool.query('SELECT 1');
-    await initializeSchema();
+    status = {
+      connected: true,
+      schemaReady: false,
+      lastError: null,
+      connectedAt: new Date().toISOString(),
+    };
+
+    try {
+      await initializeSchema();
+      status = { ...status, schemaReady: true, lastError: null };
+    } catch (schemaError) {
+      status = {
+        ...status,
+        schemaReady: false,
+        lastError: `Schema initialization failed: ${schemaError.message}`,
+      };
+      logger.error('MySQL schema initialization failed:', schemaError);
+
+      if (process.env.SCHEMA_INIT_STRICT === 'true') {
+        throw schemaError;
+      }
+    }
+
     logger.info('MySQL connected successfully');
     return pool;
   } catch (error) {
+    status = {
+      connected: false,
+      schemaReady: false,
+      lastError: error.message,
+      connectedAt: null,
+    };
     if (process.env.NODE_ENV === 'production') throw error;
     logger.warn(`MySQL connection skipped in development: ${error.message}`);
     pool = null;
@@ -73,6 +110,12 @@ const addIndexIfMissing = async (table, index, columns) => {
   }
 };
 
+const addUniqueIndexIfMissing = async (table, index, columns) => {
+  if (!(await indexExists(table, index))) {
+    await pool.query(`ALTER TABLE ${table} ADD UNIQUE INDEX ${index} (${columns})`);
+  }
+};
+
 const renameColumnIfExists = async (table, oldCol, newCol, definition) => {
   if ((await columnExists(table, oldCol)) && !(await columnExists(table, newCol))) {
     await pool.query(`ALTER TABLE ${table} CHANGE COLUMN ${oldCol} ${newCol} ${definition}`).catch((err) => {
@@ -103,7 +146,7 @@ const initializeSchema = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      display_id VARCHAR(20) NULL,
+      display_id BIGINT UNSIGNED NULL,
       name VARCHAR(150) NOT NULL,
       email VARCHAR(255) NOT NULL,
       password VARCHAR(255) NOT NULL,
@@ -125,7 +168,9 @@ const initializeSchema = async () => {
 
   // migrate id → user_id if old column still exists
   await renameColumnIfExists('users', 'id', 'user_id', 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
-  await addColumnIfMissing('users', 'display_id', 'VARCHAR(20) NULL UNIQUE AFTER user_id');
+  await addColumnIfMissing('users', 'display_id', 'BIGINT UNSIGNED NULL AFTER user_id');
+  await pool.query('UPDATE users SET display_id = user_id WHERE display_id IS NULL');
+  await addUniqueIndexIfMissing('users', 'users_display_id_unique', 'display_id');
 
   // ── organizations ────────────────────────────────────────────────────────
   await pool.query(`
@@ -381,6 +426,7 @@ const initializeSchema = async () => {
 };
 
 const getMySQLPool = () => pool;
+const getMySQLStatus = () => ({ ...status });
 
 const requirePool = () => {
   if (!pool) throw new Error('MySQL is not connected.');
@@ -391,4 +437,4 @@ const execute = (...args) => requirePool().execute(...args);
 const query = (...args) => requirePool().query(...args);
 const getConnection = (...args) => requirePool().getConnection(...args);
 
-module.exports = { connectMySQL, getMySQLPool, execute, query, getConnection };
+module.exports = { connectMySQL, getMySQLPool, getMySQLStatus, execute, query, getConnection };

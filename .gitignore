@@ -1,0 +1,36 @@
+# Dependencies and generated package-manager data
+**/node_modules/
+**/.npm-cache/
+.npm-cache/
+
+# Runtime and build output
+**/.next/
+**/.next-dev/
+**/next-build/
+**/dist/
+**/build/
+**/coverage/
+**/*.tsbuildinfo
+logs/
+**/*.log
+
+# Local configuration and credentials
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+!**/.env.production.example
+
+# Local editor and agent state
+**/.vscode/
+.agents/
+.client-git-backup/
+
+# Backups and local archives
+client_new_backup/
+**/*_backup/
+**/*.zip
+
+# OS metadata
+.DS_Store
+Thumbs.db

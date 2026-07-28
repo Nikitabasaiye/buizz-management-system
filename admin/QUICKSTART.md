@@ -102,7 +102,7 @@ Authorization: Bearer <your_token>
 
 **Admin Secret:** `change-this-admin-secret`  
 **Port:** `5001`  
-**Database:** `buizz_management` (shared with main app)
+**Database:** `u943298757_buizz` (shared with main app)
 
 ---
 

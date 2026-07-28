@@ -2,16 +2,36 @@ const USER_ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
   ORGANIZER: 'organizer',
+  CUSTOMER: 'user',
+  LEGACY_CUSTOMER: 'customer',
+  CHECKIN_STAFF: 'checkin_staff',
+  INFLUENCER: 'influencer',
   USER: 'user',
-  INFLUENCER: 'influencer'
 };
 
 const EVENT_STATUS = {
   DRAFT: 'draft',
+  SUBMITTED: 'submitted',
+  UNDER_REVIEW: 'under_review',
+  CHANGES_REQUESTED: 'changes_requested',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
   PUBLISHED: 'published',
   ONGOING: 'ongoing',
   COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
+  // legacy alias kept for backward compat
+  PENDING_APPROVAL: 'submitted',
+};
+
+const KYC_STATUS = {
+  DRAFT: 'draft',
+  PENDING: 'pending',
+  UNDER_REVIEW: 'under_review',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  // legacy alias — backend DB column still uses 'verified'
+  VERIFIED: 'verified',
 };
 
 const TICKET_STATUS = {
@@ -63,6 +83,7 @@ const QUEUE_NAMES = {
 module.exports = {
   USER_ROLES,
   EVENT_STATUS,
+  KYC_STATUS,
   TICKET_STATUS,
   PAYMENT_STATUS,
   SETTLEMENT_STATUS,

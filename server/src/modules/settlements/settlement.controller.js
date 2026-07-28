@@ -27,17 +27,17 @@ const saveMyBankAccount = async (req, res, next) => {
     if (req.files) {
       if (req.files.passbook) {
         const passbookFile = await uploadService.processUpload(
-          req.files.passbook[0], 
+          req.files.passbook[0],
           req.user.id,
-          'passbook'
+          `bank-documents/${req.user.id}/passbook`
         );
         documents.passbook = passbookFile;
       }
       if (req.files.cheque) {
         const chequeFile = await uploadService.processUpload(
-          req.files.cheque[0], 
+          req.files.cheque[0],
           req.user.id,
-          'cheque'
+          `bank-documents/${req.user.id}/cheque`
         );
         documents.cheque = chequeFile;
       }
@@ -82,17 +82,17 @@ const saveOrganizerBankAccount = async (req, res, next) => {
     if (req.files) {
       if (req.files.passbook) {
         const passbookFile = await uploadService.processUpload(
-          req.files.passbook[0], 
+          req.files.passbook[0],
           req.params.organizerId,
-          'passbook'
+          `bank-documents/${req.params.organizerId}/passbook`
         );
         documents.passbook = passbookFile;
       }
       if (req.files.cheque) {
         const chequeFile = await uploadService.processUpload(
-          req.files.cheque[0], 
+          req.files.cheque[0],
           req.params.organizerId,
-          'cheque'
+          `bank-documents/${req.params.organizerId}/cheque`
         );
         documents.cheque = chequeFile;
       }

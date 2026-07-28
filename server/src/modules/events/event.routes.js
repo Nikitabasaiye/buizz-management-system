@@ -4,8 +4,16 @@ const { authenticate, requirePermission, auditLog } = require('../../middleware/
 const { requireKycVerification } = require('../../middleware/kycVerification');
 const { PERMISSIONS } = require('../../config/permissions');
 const { validateEventCreation, validateEventUpdate } = require('./event.validator');
+const { upload } = require('../../config/upload');
 
 const router = express.Router();
+
+// Draft-specific routes
+router.get('/drafts',
+  authenticate,
+  requirePermission(PERMISSIONS.EVENT_READ),
+  eventController.getDraftEvents
+);
 
 // Public routes
 router.get('/', eventController.getEvents);
@@ -15,9 +23,18 @@ router.get('/:id', eventController.getEventById);
 // Protected routes
 router.use(authenticate);
 
+router.post('/draft',
+  auditLog('event:draft_save'),
+  eventController.saveDraft
+);
+
+router.put('/draft/:id',
+  requirePermission(PERMISSIONS.EVENT_UPDATE),
+  auditLog('event:draft_update'),
+  eventController.saveDraft
+);
+
 router.post('/',
-  requirePermission(PERMISSIONS.EVENT_CREATE),
-  requireKycVerification, // KYC check for event creation
   validateEventCreation,
   auditLog('event:create'),
   eventController.createEvent
@@ -38,9 +55,21 @@ router.delete('/:id',
 
 router.patch('/:id/publish',
   requirePermission(PERMISSIONS.EVENT_PUBLISH),
-  requireKycVerification, // KYC check for event publishing
   auditLog('event:publish'),
   eventController.publishEvent
+);
+
+router.patch('/:id/submit',
+  requirePermission(PERMISSIONS.EVENT_UPDATE),
+  auditLog('event:submit'),
+  eventController.submitEventForReview
+);
+
+// Image upload endpoint
+router.post('/upload-image',
+  authenticate,
+  upload.single('image'),
+  eventController.uploadEventImage
 );
 
 module.exports = router;

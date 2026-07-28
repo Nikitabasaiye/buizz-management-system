@@ -28,8 +28,11 @@ const requireKycVerification = async (req, res, next) => {
 
     const user = users[0];
 
-    // Check if KYC is verified
-    if (user.kyc_status !== 'verified') {
+    // Accept both 'verified' (legacy) and 'approved' (new status)
+    const kycOk = user.kyc_status === 'verified' || user.kyc_status === 'approved';
+    const bankOk = user.bank_verification_status === 'verified' || user.bank_verification_status === 'approved';
+
+    if (!kycOk) {
       logger.warn('Access blocked - KYC not verified', { 
         userId: req.user.id, 
         path: req.path,
@@ -37,18 +40,13 @@ const requireKycVerification = async (req, res, next) => {
       });
       
       return next(new AppError(
-        'Your KYC is not verified. Please complete KYC verification to continue.',
+        'Complete KYC verification before publishing events.',
         403,
-        { 
-          reason: 'kyc_not_verified',
-          kycStatus: user.kyc_status,
-          bankStatus: user.bank_verification_status
-        }
+        { reason: 'kyc_not_verified', kycStatus: user.kyc_status, bankStatus: user.bank_verification_status }
       ));
     }
 
-    // Check if bank verification is complete
-    if (user.bank_verification_status !== 'verified') {
+    if (!bankOk) {
       logger.warn('Access blocked - Bank not verified', { 
         userId: req.user.id, 
         path: req.path,
@@ -56,13 +54,9 @@ const requireKycVerification = async (req, res, next) => {
       });
       
       return next(new AppError(
-        'Your bank account is not verified. Please complete bank verification to continue.',
+        'Complete bank verification before publishing events.',
         403,
-        { 
-          reason: 'bank_not_verified',
-          kycStatus: user.kyc_status,
-          bankStatus: user.bank_verification_status
-        }
+        { reason: 'bank_not_verified', kycStatus: user.kyc_status, bankStatus: user.bank_verification_status }
       ));
     }
 

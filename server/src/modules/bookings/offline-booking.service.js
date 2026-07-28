@@ -2,8 +2,11 @@ const { getMySQLPool } = require('../../database/mysql');
 const { AppError } = require('../../middleware/errorHandler');
 const ticketRepository = require('../../repositories/ticket.repository');
 const eventRepository = require('../events/event.repository');
-const whatsappService = require('../../services/whatsapp.service');
 const logger = require('../../utils/logger');
+const notificationQueue = require('../../services/notification-queue.service');
+const userRepository = require('../users/user.repository');
+const verificationCodeService = require('../../services/verification-code.service');
+const crypto = require('crypto');
 
 const TICKET_LIMIT_PER_EVENT = 10;
 
@@ -21,9 +24,35 @@ class OfflineBookingService {
   }
 
   async createOfflineBooking(bookingData, organizerId) {
-    const { eventId, ticketTypeId, quantity, customerName, customerEmail, customerPhone, userId } = bookingData;
+    const { eventId, ticketTypeId, quantity, customerName, customerEmail, customerPhone } = bookingData;
+    let { userId } = bookingData;
+    const paymentMode = bookingData.paymentMode || 'Cash';
+    const paymentReference = bookingData.paymentReference || null;
     
     const pool = getMySQLPool();
+
+    await verificationCodeService.consume({
+      channel: 'phone',
+      destination: customerPhone,
+      purpose: 'offline_booking',
+      verificationToken: bookingData.customerPhoneVerificationToken,
+    });
+
+    if (!userId) {
+      let customer = await userRepository.findByEmail(customerEmail);
+      if (!customer && customerPhone) customer = await userRepository.findByPhone(customerPhone);
+      if (!customer) {
+        customer = await userRepository.create({
+          name: customerName,
+          email: customerEmail,
+          phone: customerPhone,
+          password: `${crypto.randomBytes(16).toString('hex')}Aa1!`,
+          role: 'user',
+          isPhoneVerified: true,
+        });
+      }
+      userId = customer.id;
+    }
     
     // Validate event
     const event = await eventRepository.findById(eventId);
@@ -65,12 +94,22 @@ class OfflineBookingService {
 
     const bookingId = bookingResult.insertId;
 
-    // Create payment record with COD
+    // Create payment record after organizer confirms successful offline payment
     const orderId = `OFF${Date.now()}${organizerId}`;
+    const normalizedPaymentMethod = paymentMode === 'Razorpay' ? 'razorpay' : paymentMode === 'UPI' ? 'upi' : paymentMode === 'Cash' ? 'cash' : String(paymentMode).toLowerCase();
     const [paymentResult] = await pool.execute(
       `INSERT INTO payments (booking_id, user_id, event_id, order_id, amount, currency, status, payment_method, gateway_response, transaction_id)
-       VALUES (?, ?, ?, ?, ?, 'INR', 'completed', 'cod', ?, ?)`,
-      [bookingId, userId, eventId, orderId, amount, JSON.stringify({ method: 'cod', customerName, customerEmail, customerPhone }), orderId]
+       VALUES (?, ?, ?, ?, ?, 'INR', 'completed', ?, ?, ?)`,
+      [
+        bookingId,
+        userId,
+        eventId,
+        orderId,
+        amount,
+        normalizedPaymentMethod,
+        JSON.stringify({ method: normalizedPaymentMethod, paymentMode, paymentReference, customerName, customerEmail, customerPhone }),
+        paymentReference || orderId
+      ]
     );
 
     const paymentId = paymentResult.insertId;
@@ -130,8 +169,8 @@ class OfflineBookingService {
     // Send notification
     await this.sendOfflineBookingNotification(userId, organizerId, event, tickets, customerEmail, customerName);
 
-    if (customerPhone && whatsappService.isConfigured()) {
-      await whatsappService.sendBookingConfirmation(customerPhone, {
+    if (customerPhone || customerEmail) {
+      const deliveryPayload = {
         userName: customerName || customerEmail || 'Guest',
         ticketNumber: tickets[0]?.ticket_number,
         eventName: event.title,
@@ -151,17 +190,48 @@ class OfflineBookingService {
         quantity,
         amountPaid: `Rs. ${Number(amount).toLocaleString('en-IN')}`,
         orderId,
-        transactionId: orderId,
+        transactionId: paymentReference || orderId,
+        ticketUrl: `${(process.env.FRONTEND_URL || 'https://www.buizz.com').replace(/\/$/, '')}/profile/tickets`,
         tickets: tickets.map((ticket) => ({
           ticketNumber: ticket.ticket_number,
           ticketType: ticket.ticket_type,
           qrCode: ticket.qr_code,
         })),
-      }).catch((error) => {
-        logger.error('Failed to send offline booking WhatsApp confirmation', {
+      };
+
+      await notificationQueue.enqueueTicketDelivery({
+        phone: customerPhone,
+        whatsappPayload: deliveryPayload,
+        emailPayload: {
+          to: customerEmail,
+          userName: customerName || customerEmail || 'Guest',
+          eventName: event.title,
+          eventDate: deliveryPayload.eventDate,
+          eventTime: new Date(event.start_date).toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }),
+          eventVenue: deliveryPayload.eventVenue,
+          ticketNumber: tickets[0]?.ticket_number,
+          ticketType: ticketType.name,
+          quantity,
+          amountPaid: `Rs. ${Number(amount).toLocaleString('en-IN')}`,
           orderId,
-          error: error.response?.data || error.message,
-        });
+          qrCodeDataUrl: tickets[0]?.qr_code,
+          eventImage: event.banner,
+          category: event.category || 'Events',
+          organizerName: event.organizer_name || 'Buizz Organizer',
+          seatGroups: [{
+            section: ticketType.name || 'General',
+            totalSeats: quantity,
+            seatNumbers: `${ticketType.name || 'General'} x${quantity}`,
+            amount: Number(amount),
+          }],
+          attachments: [],
+        },
+      }).catch((error) => {
+        logger.error('Failed to queue offline booking ticket delivery', { orderId, error: error.message });
       });
     }
 
@@ -172,7 +242,8 @@ class OfflineBookingService {
         orderId,
         amount,
         quantity,
-        paymentMethod: 'cod'
+        paymentMethod: normalizedPaymentMethod,
+        paymentReference
       },
       tickets,
       event: {

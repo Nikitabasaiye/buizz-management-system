@@ -16,8 +16,8 @@ Update `.env` file with your configuration (already created with defaults)
 ### 3. Run Database Migrations
 ```bash
 # From server directory
-mysql -u root -p buizz_management < database/approval_system_migration.sql
-mysql -u root -p buizz_management < database/rbac_user_groups_migration.sql
+mysql -u u943298757_buizz -p u943298757_buizz < database/approval_system_migration.sql
+mysql -u u943298757_buizz -p u943298757_buizz < database/rbac_user_groups_migration.sql
 ```
 
 ### 4. Start Application
@@ -51,7 +51,7 @@ admin/
 │   ├── middleware/            # Auth, RBAC, security
 │   ├── utils/                 # Helpers & utilities
 │   ├── services/              # Business logic
-│   ├── database/              # MySQL & Redis
+│   ├── database/              # MySQL
 │   ├── config/                # Configuration files
 │   └── app.js                 # Express app setup
 ├── logs/                      # Application logs
@@ -187,14 +187,9 @@ ADMIN_FRONTEND_URL=http://localhost:3001
 # Database (shared with main app)
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
-MYSQL_DATABASE=buizz_management
-MYSQL_USER=root
-MYSQL_PASSWORD=
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
+MYSQL_DATABASE=u943298757_buizz
+MYSQL_USER=u943298757_buizz
+MYSQL_PASSWORD=your-mysql-password
 
 # JWT
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
@@ -209,7 +204,7 @@ ADMIN_REGISTRATION_SECRET=change-this-admin-secret
 SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465
 SMTP_USER=contact@buizz.com
-SMTP_PASS=Indiabuizz@12345
+SMTP_PASS=your_smtp_app_password
 SMTP_SECURE=true
 ```
 
@@ -316,7 +311,6 @@ Import and test all endpoints using Postman:
 
 **Shared with main application:**
 - MySQL for persistent storage
-- Redis for caching & sessions
 
 **Tables used:**
 - users

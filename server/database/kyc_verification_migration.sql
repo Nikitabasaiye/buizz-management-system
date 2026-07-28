@@ -37,6 +37,5 @@ CREATE TABLE IF NOT EXISTS user_kyc_verifications (
   KEY user_kyc_status_index (status),
   KEY user_kyc_role_index (role),
   FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-  FOREIGN KEY (bank_account_id) REFERENCES organizer_bank_accounts(id) ON DELETE SET NULL,
   FOREIGN KEY (reviewed_by) REFERENCES users(user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

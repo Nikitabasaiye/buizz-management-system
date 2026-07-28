@@ -6,9 +6,9 @@ const {
   generateRefreshToken,
   generateSecureToken,
   blacklistToken,
-  storeRedisToken,
-  getRedisToken,
-  deleteRedisToken
+  storeTemporaryToken,
+  getTemporaryToken,
+  deleteTemporaryToken
 } = require('../../utils/auth.helper');
 const logger = require('../../utils/logger');
 const bcrypt = require('bcryptjs');
@@ -39,6 +39,10 @@ const register = async (userData) => {
     'INSERT INTO users (name, email, password, role, is_active, is_verified) VALUES (?, ?, ?, ?, 1, 1)',
     [userData.name, userData.email, hashedPassword, userData.role]
   );
+  await pool.execute(
+    'UPDATE users SET display_id = ? WHERE user_id = ? AND display_id IS NULL',
+    [result.insertId, result.insertId]
+  );
 
   const token = generateAccessToken(result.insertId, userData.role);
   const refreshToken = generateRefreshToken(result.insertId, userData.role);
@@ -46,7 +50,7 @@ const register = async (userData) => {
   logger.info('Admin registered', { userId: result.insertId, email: userData.email });
 
   return {
-    user: { id: result.insertId, name: userData.name, email: userData.email, role: userData.role },
+    user: { id: result.insertId, displayId: result.insertId, name: userData.name, email: userData.email, role: userData.role },
     token,
     refreshToken
   };
@@ -56,7 +60,7 @@ const login = async (email, password) => {
   const pool = getMySQLPool();
 
   const [users] = await pool.query(
-    'SELECT user_id, name, email, password, role, is_active FROM users WHERE email = ? AND role IN (?, ?)',
+    'SELECT user_id, display_id, name, email, password, role, is_active FROM users WHERE email = ? AND role IN (?, ?)',
     [email, 'admin', 'super_admin']
   );
 
@@ -89,6 +93,7 @@ const login = async (email, password) => {
   return {
     user: { 
       id: user.user_id, 
+      displayId: user.display_id,
       name: user.name, 
       email: user.email, 
       role: user.role 
@@ -138,7 +143,7 @@ const forgotPassword = async (email) => {
   }
 
   const resetToken = generateSecureToken();
-  await storeRedisToken('admin_reset', resetToken, users[0].user_id);
+  await storeTemporaryToken('admin_reset', resetToken, users[0].user_id);
 
   logger.info('Password reset requested', { userId: users[0].user_id });
 
@@ -149,7 +154,7 @@ const forgotPassword = async (email) => {
 };
 
 const resetPassword = async (token, newPassword) => {
-  const userId = await getRedisToken('admin_reset', token);
+  const userId = await getTemporaryToken('admin_reset', token);
   if (!userId) {
     throw new AppError('Invalid or expired reset token', 400);
   }
@@ -162,7 +167,7 @@ const resetPassword = async (token, newPassword) => {
     [hashedPassword, userId]
   );
 
-  await deleteRedisToken('admin_reset', token);
+  await deleteTemporaryToken('admin_reset', token);
   logger.info('Password reset successful', { userId });
 };
 
@@ -170,7 +175,7 @@ const getProfile = async (userId) => {
   const pool = getMySQLPool();
 
   const [users] = await pool.query(
-    'SELECT user_id, name, email, role, phone, created_at, last_login FROM users WHERE user_id = ?',
+    'SELECT user_id, display_id, name, email, role, phone, created_at, last_login FROM users WHERE user_id = ?',
     [userId]
   );
 
@@ -178,7 +183,10 @@ const getProfile = async (userId) => {
     throw new AppError('User not found', 404);
   }
 
-  return users[0];
+  return {
+    ...users[0],
+    displayId: users[0].display_id,
+  };
 };
 
 const updateProfile = async (userId, data) => {

@@ -9,144 +9,182 @@ class PdfService {
       ticketNumber,
       eventName,
       eventDate,
+      eventTime,
       eventVenue,
-      eventAddress,
-      userName,
-      userEmail,
       ticketType,
       price,
-      orderId,
-      transactionId,
+      quantity = 1,
       qrCodeDataUrl,
-      organizerName,
+      organizerName = 'Buizz Organizer',
       eventBanner,
+      category = 'Music Events',
+      seatInfo,
+      totalSeats,
+      seatGroups,
     } = ticketData;
 
     return new Promise(async (resolve, reject) => {
       try {
-        const doc = new PDFDocument({ size: 'A4', margin: 0 });
+        const doc = new PDFDocument({ size: [506, 667], margin: 0 });
         const buffers = [];
 
         doc.on('data', (chunk) => buffers.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(buffers)));
         doc.on('error', reject);
 
-        const W = 595.28;
-        const H = 841.89;
-
-        // ── Background ──────────────────────────────────────────────────────
-        doc.rect(0, 0, W, H).fill('#0f0f1a');
-
-        // ── Header gradient bar ──────────────────────────────────────────────
-        doc.rect(0, 0, W, 8).fill('#6c63ff');
-
-        // ── Brand header ────────────────────────────────────────────────────
-        doc.rect(0, 8, W, 80).fill('#1a1a2e');
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(28)
-          .fillColor('#6c63ff')
-          .text('BUIZZ', 40, 28);
-        doc
-          .font('Helvetica')
-          .fontSize(10)
-          .fillColor('#888888')
-          .text('Event Management Platform', 40, 58);
-
-        // ── TICKET label ─────────────────────────────────────────────────────
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(11)
-          .fillColor('#6c63ff')
-          .text('E-TICKET', W - 120, 38, { width: 80, align: 'right' });
-        doc
-          .font('Helvetica')
-          .fontSize(9)
-          .fillColor('#888888')
-          .text('ADMIT ONE', W - 120, 54, { width: 80, align: 'right' });
-
-        // ── Event name block ─────────────────────────────────────────────────
-        doc.rect(0, 88, W, 100).fill('#16213e');
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(22)
-          .fillColor('#ffffff')
-          .text(eventName, 40, 108, { width: W - 80 });
-        doc
-          .font('Helvetica')
-          .fontSize(11)
-          .fillColor('#6c63ff')
-          .text(`${ticketType.toUpperCase()} TICKET`, 40, 158);
-
-        // ── Divider ──────────────────────────────────────────────────────────
-        doc.rect(0, 188, W, 2).fill('#6c63ff');
-
-        // ── Details section ──────────────────────────────────────────────────
-        const detailY = 210;
-        const col1 = 40;
-        const col2 = W / 2 + 20;
-
-        this._detailBlock(doc, col1, detailY,      '📅  DATE & TIME',   eventDate);
-        this._detailBlock(doc, col2, detailY,      '📍  VENUE',         eventVenue);
-        this._detailBlock(doc, col1, detailY + 80, '👤  ATTENDEE',      userName);
-        this._detailBlock(doc, col2, detailY + 80, '✉️  EMAIL',          userEmail);
-        this._detailBlock(doc, col1, detailY + 160,'🎫  TICKET TYPE',   ticketType.toUpperCase());
-        this._detailBlock(doc, col2, detailY + 160,'💰  AMOUNT PAID',   `₹${Number(price).toLocaleString('en-IN')}`);
-
-        // ── Ticket number ────────────────────────────────────────────────────
-        doc.rect(40, detailY + 260, W - 80, 50).fill('#1a1a2e').stroke('#6c63ff');
-        doc
-          .font('Helvetica')
-          .fontSize(9)
-          .fillColor('#888888')
-          .text('TICKET NUMBER', 60, detailY + 270);
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(14)
-          .fillColor('#ffffff')
-          .text(ticketNumber, 60, detailY + 284);
-
-        // ── QR Code ──────────────────────────────────────────────────────────
-        const qrY = detailY + 330;
-        doc.rect(0, qrY - 10, W, 200).fill('#16213e');
+        const W = 506;
+        const H = 667;
+        const cardX = 32;
+        const cardY = 10;
+        const cardW = 430;
+        const cardH = 650;
+        const pink = '#EC1B72';
+        const pinkText = '#ff4fa0';
+        const dark = '#08000d';
+        const tableBorder = '#322436';
+        const seats = Number(totalSeats || quantity || 1);
+        const groups = Array.isArray(seatGroups) && seatGroups.length
+          ? seatGroups
+          : [{
+              section: 'General',
+              totalSeats: seats,
+              seatNumbers: seatInfo || `${ticketType || 'General'} x${seats}`,
+              amount: Number(price || 0),
+            }];
+        const totalAmount = Number(price || groups.reduce((sum, group) => sum + Number(group.amount || 0), 0));
+        let qrBuffer = null;
 
         if (qrCodeDataUrl) {
-          const qrBase64 = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
-          const qrBuffer = Buffer.from(qrBase64, 'base64');
-          doc.image(qrBuffer, W / 2 - 70, qrY + 10, { width: 140, height: 140 });
+          qrBuffer = Buffer.from(String(qrCodeDataUrl).replace(/^data:image\/png;base64,/, ''), 'base64');
+        } else {
+          const qrDataUrl = await QRCode.toDataURL(String(ticketNumber || 'BUIZZ-TICKET'), {
+            errorCorrectionLevel: 'H',
+            margin: 3,
+            width: 512,
+            color: { dark: '#090a0d', light: '#ffffff' },
+          });
+          qrBuffer = Buffer.from(qrDataUrl.replace(/^data:image\/png;base64,/, ''), 'base64');
         }
 
-        doc
-          .font('Helvetica')
-          .fontSize(9)
-          .fillColor('#888888')
-          .text('Scan QR code at venue entrance', 0, qrY + 158, { align: 'center', width: W });
+        doc.rect(0, 0, W, H).fill('#111827');
+        doc.roundedRect(cardX, cardY, cardW, cardH, 28).fill(dark);
+        doc.roundedRect(cardX, cardY, cardW, cardH, 28).lineWidth(1).stroke(pink);
 
-        // ── Footer ───────────────────────────────────────────────────────────
-        const footerY = qrY + 200;
-        doc.rect(0, footerY, W, 1).fill('#333333');
-        doc
-          .font('Helvetica')
-          .fontSize(8)
-          .fillColor('#555555')
-          .text(`Order ID: ${orderId}   |   Transaction ID: ${transactionId}`, 0, footerY + 12, {
-            align: 'center',
-            width: W,
-          });
-        doc
-          .fontSize(8)
-          .fillColor('#555555')
-          .text('This is a valid e-ticket. Please present at the venue entrance.', 0, footerY + 26, {
-            align: 'center',
-            width: W,
-          });
-        doc
-          .fontSize(8)
-          .fillColor('#333333')
-          .text('© Buizz Event Management Platform', 0, footerY + 40, {
-            align: 'center',
-            width: W,
-          });
+        const headerH = 250;
+        doc.save();
+        doc.roundedRect(cardX, cardY, cardW, headerH, 28).clip();
+        doc.rect(cardX, cardY, cardW, headerH).fill('#100014');
+        if (eventBanner) {
+          try {
+            doc.image(eventBanner, cardX, cardY, { width: cardW, height: headerH });
+          } catch (error) {
+            logger.warn('Ticket PDF banner could not be embedded', { error: error.message });
+          }
+        }
+        doc.rect(cardX, cardY, cardW, headerH).fillOpacity(0.74).fill('#050006');
+        doc.fillOpacity(1);
+        doc.restore();
+
+        doc.font('Helvetica-Bold').fontSize(26).fillColor(pink).text('Buizz', 58, 30);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff').text('BUIZZ PASS', 308, 28, { width: 78, align: 'center' });
+        doc.roundedRect(314, 48, 65, 24, 12).fill(pink);
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff').text('VALID', 314, 56, { width: 65, align: 'center' });
+
+        const initials = organizerName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toUpperCase())
+          .join('') || 'BE';
+        doc.circle(412, 44, 22).fill('#ffffff');
+        doc.font('Helvetica-Bold').fontSize(12).fillColor(pink).text(initials, 390, 39, { width: 44, align: 'center' });
+        doc.font('Helvetica-Bold').fontSize(7).fillColor(pinkText).text(organizerName, 384, 75, { width: 58, align: 'center', ellipsis: true });
+
+        doc.font('Helvetica-Bold').fontSize(23).fillColor('#ffffff').text(eventName || 'Buizz Event', 48, 106, {
+          width: 360,
+          height: 58,
+          ellipsis: true,
+        });
+        doc.roundedRect(48, 138, 132, 27, 14).fillOpacity(0.2).fill(pink);
+        doc.fillOpacity(1).font('Helvetica-Bold').fontSize(10).fillColor(pinkText).text(category || 'Music Events', 78, 147, {
+          width: 96,
+          ellipsis: true,
+        });
+
+        const metaY = 182;
+        this._ticketMeta(doc, 50, metaY, 'CAL', eventDate || 'Date pending');
+        this._ticketMeta(doc, 50, metaY + 25, 'CLK', eventTime || 'Time pending');
+        this._ticketMeta(doc, 50, metaY + 50, 'PIN', eventVenue || 'Venue pending');
+
+        doc.save();
+        doc.dash(3, { space: 3 }).moveTo(49, 259).lineTo(445, 259).lineWidth(1).strokeColor(pink).stroke();
+        doc.undash();
+        doc.restore();
+        doc.circle(32, 260, 16).fill('#111827').strokeColor(pink).stroke();
+        doc.circle(462, 260, 16).fill('#111827').strokeColor(pink).stroke();
+
+        doc.font('Helvetica-Bold').fontSize(10).fillColor(pinkText).text('BOOKING ID', 48, 291);
+        doc.font('Helvetica-Bold').fontSize(16).fillColor('#ffffff').text(ticketNumber || 'BUIZZ-TICKET', 48, 315, {
+          width: 245,
+          ellipsis: true,
+        });
+        this._ticketMeta(doc, 50, 350, 'TKT', `${seats} ${seats === 1 ? 'seat' : 'seats'} on this pass`);
+        this._ticketMeta(doc, 50, 372, 'OK', 'Scan at Gate Entry');
+
+        const qrX = 342;
+        const qrY = 277;
+        doc.roundedRect(qrX, qrY, 108, 108, 17).fill('#ffffff').strokeColor(pink).lineWidth(1).stroke();
+        doc.image(qrBuffer, qrX + 6, qrY + 6, { width: 96, height: 96 });
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff').text('SCAN AT GATE ENTRY', qrX - 2, qrY + 110, {
+          width: 104,
+          align: 'center',
+        });
+
+        const seatsY = 412;
+        doc.font('Helvetica-Bold').fontSize(10).fillColor(pinkText).text('SELECTED SEATS', 48, seatsY);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff').text(`${seats} total`, 390, seatsY, {
+          width: 55,
+          align: 'right',
+        });
+
+        const tableX = 48;
+        const tableY = 432;
+        const tableW = 398;
+        const rowH = 38;
+        doc.roundedRect(tableX, tableY, tableW, 90, 18).lineWidth(1).strokeColor(tableBorder).stroke();
+        doc.rect(tableX, tableY, tableW, 52).fill('#17101d');
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff');
+        doc.text('SECTION', tableX + 8, tableY + 17, { width: 94 });
+        doc.text('TOTAL\nSEATS', tableX + 118, tableY + 12, { width: 60 });
+        doc.text('SEAT NUMBERS', tableX + 190, tableY + 17, { width: 104 });
+        doc.text('AMOUNT', tableX + 310, tableY + 17, { width: 76 });
+
+        const firstGroup = groups[0];
+        const rowY = tableY + 52;
+        doc.rect(tableX, rowY, tableW, rowH).fill(dark);
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#a855f7').text(firstGroup.section || 'General', tableX + 8, rowY + 13, { width: 94, ellipsis: true });
+        doc.fillColor('#ffffff').text(String(firstGroup.totalSeats || seats), tableX + 118, rowY + 13, { width: 60 });
+        doc.fillColor(pinkText).text(firstGroup.seatNumbers || `${ticketType || 'General'} x${seats}`, tableX + 190, rowY + 13, { width: 104, ellipsis: true });
+        doc.fillColor('#ffffff').text(this._currency(firstGroup.amount || totalAmount), tableX + 310, rowY + 13, { width: 76, ellipsis: true });
+
+        doc.moveTo(48, 538).lineTo(446, 538).lineWidth(1).strokeColor(tableBorder).stroke();
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff').text('TOTAL AMOUNT PAID', 48, 562);
+        doc.font('Helvetica-Bold').fontSize(24).fillColor(pinkText).text(this._currency(totalAmount), 330, 554, {
+          width: 116,
+          align: 'right',
+        });
+
+        doc.save();
+        doc.dash(3, { space: 3 }).moveTo(48, 593).lineTo(446, 593).lineWidth(1).strokeColor(tableBorder).stroke();
+        doc.undash();
+        doc.restore();
+        doc.circle(55, 618, 6).strokeColor(pinkText).stroke();
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff').text(
+          'Please show this ticket at venue entry. This is a single entry ticket for all selected seats.',
+          69,
+          613,
+          { width: 355 }
+        );
 
         doc.end();
       } catch (err) {
@@ -155,8 +193,6 @@ class PdfService {
       }
     });
   }
-
-  // ─── Invoice PDF ─────────────────────────────────────────────────────────────
   async generateInvoicePdf(invoiceData) {
     const {
       invoiceNumber,
@@ -333,6 +369,18 @@ class PdfService {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
+  _ticketMeta(doc, x, y, icon, value) {
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#ff4fa0').text(icon, x, y, { width: 18 });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff').text(value || 'Pending', x + 21, y - 1, {
+      width: 360,
+      ellipsis: true,
+    });
+  }
+
+  _currency(amount) {
+    return `Rs.${Math.max(0, Math.round(Number(amount || 0))).toLocaleString('en-IN')}`;
+  }
+
   _detailBlock(doc, x, y, label, value) {
     doc.font('Helvetica').fontSize(8).fillColor('#888888').text(label, x, y, { width: 230 });
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#ffffff').text(value || '—', x, y + 14, { width: 230 });

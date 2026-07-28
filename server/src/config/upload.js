@@ -2,6 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { AppError } = require('../middleware/errorHandler');
+const logger = require('../utils/logger');
 
 // Create upload directories if they don't exist
 const createUploadDirs = () => {
@@ -99,11 +100,13 @@ try {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true
     });
+    logger.info('Cloudinary configured successfully');
   }
 } catch (error) {
-  console.log('Cloudinary not configured');
+  logger.info('Cloudinary not configured');
 }
 
 // Upload to cloudinary (if configured)
@@ -126,7 +129,7 @@ const uploadToCloudinary = async (filePath, folder = 'kyc-documents') => {
       size: result.bytes
     };
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    logger.error('Cloudinary upload error', { error: error.message });
     return null;
   }
 };
@@ -141,7 +144,7 @@ const deleteFromCloudinary = async (publicId) => {
     await cloudinary.uploader.destroy(publicId);
     return true;
   } catch (error) {
-    console.error('Cloudinary delete error:', error);
+    logger.error('Cloudinary delete error', { error: error.message });
     return false;
   }
 };
@@ -155,7 +158,7 @@ const deleteLocalFile = (filePath) => {
     }
     return false;
   } catch (error) {
-    console.error('Local file delete error:', error);
+    logger.error('Local file delete error', { error: error.message });
     return false;
   }
 };

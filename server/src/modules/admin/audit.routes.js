@@ -36,6 +36,42 @@ router.get('/event/:eventId/approvals',
   auditController.getEventApprovalHistory
 );
 
+// Alias routes matching frontend API calls
+router.get('/logs/:id',
+  authorize('super_admin'),
+  auditController.getAuditLogById
+);
+
+router.get('/users/:userId/activity',
+  authorize('super_admin', 'admin'),
+  auditController.getUserActivity
+);
+
+router.get('/users/:userId/sessions',
+  authorize('super_admin', 'admin'),
+  auditController.getUserSessions
+);
+
+router.get('/organizers/:organizerId/history',
+  authorize('super_admin'),
+  auditController.getOrganizerHistory
+);
+
+router.get('/events/:eventId/approvals',
+  authorize('super_admin', 'admin'),
+  auditController.getEventApprovalHistory
+);
+
+router.get('/dashboard',
+  authorize('super_admin', 'admin'),
+  auditController.getDashboardStats
+);
+
+router.get('/stats',
+  authorize('super_admin', 'admin'),
+  auditController.getDashboardStats
+);
+
 router.get('/export',
   authorize('super_admin'),
   auditController.exportAuditLogs

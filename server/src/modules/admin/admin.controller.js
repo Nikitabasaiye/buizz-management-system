@@ -12,9 +12,26 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  async googleLogin(req, res, next) {
+    try {
+      const { idToken } = req.body;
+      if (!idToken) return next(new (require('../../middleware/errorHandler').AppError)('Google ID token is required', 400));
+      const ipAddress = req.ip;
+      const userAgent = req.get('user-agent');
+      const result = await adminService.googleLogin(idToken, ipAddress, userAgent);
+      res.cookie('admin_token', result.token, {
+        httpOnly: true, secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      res.status(200).json({ success: true, message: 'Login successful', data: result });
+    } catch (error) { next(error); }
+  }
+
   async login(req, res, next) {
     try {
-      const result = await adminService.login(req.body.email, req.body.password);
+      const ipAddress = req.ip;
+      const userAgent = req.get('user-agent');
+      const result = await adminService.login(req.body.email, req.body.password, ipAddress, userAgent);
       res.cookie('admin_token', result.token, {
         httpOnly: true, secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -26,7 +43,8 @@ class AdminController {
   async logout(req, res, next) {
     try {
       const token = req.cookies.admin_token || req.headers.authorization?.split(' ')[1];
-      await adminService.logout(token);
+      const adminId = req.admin?.id || null;
+      await adminService.logout(token, adminId);
       res.clearCookie('admin_token');
       res.status(200).json({ success: true, message: 'Logged out successfully' });
     } catch (error) { next(error); }
@@ -34,7 +52,9 @@ class AdminController {
 
   async refreshToken(req, res, next) {
     try {
-      const result = await adminService.refreshToken(req.body.refreshToken);
+      const ipAddress = req.ip;
+      const userAgent = req.get('user-agent');
+      const result = await adminService.refreshToken(req.body.refreshToken, ipAddress, userAgent);
       res.status(200).json({ success: true, data: result });
     } catch (error) { next(error); }
   }
@@ -132,30 +152,6 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
-  async getBookings(req, res, next) {
-    try {
-      const pool = getMySQLPool();
-      const { page = 1, limit = 20, status } = req.query;
-      const offset = (Number(page) - 1) * Number(limit);
-      const params = [];
-      let where = 'WHERE 1=1';
-      if (status) { where += ' AND b.booking_status = ?'; params.push(status); }
-
-      const [rows] = await pool.query(
-        `SELECT b.*, u.name user_name, u.email user_email, e.title event_title
-         FROM bookings b
-         LEFT JOIN users u ON b.user_id = u.user_id
-         LEFT JOIN events e ON b.event_id = e.event_id
-         ${where}
-         ORDER BY b.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [...params, Number(limit), offset]
-      );
-      const [[count]] = await pool.query(`SELECT COUNT(*) total FROM bookings b ${where}`, params);
-      res.status(200).json({ success: true, data: { bookings: rows, pagination: { page: Number(page), limit: Number(limit), total: count.total, pages: Math.ceil(count.total / Number(limit)) } } });
-    } catch (error) { next(error); }
-  }
-
   async getPayments(req, res, next) {
     try {
       const pool = getMySQLPool();
@@ -177,6 +173,154 @@ class AdminController {
       );
       const [[count]] = await pool.query(`SELECT COUNT(*) total FROM payments p ${where}`, params);
       res.status(200).json({ success: true, data: { payments: rows, pagination: { page: Number(page), limit: Number(limit), total: count.total, pages: Math.ceil(count.total / Number(limit)) } } });
+    } catch (error) { next(error); }
+  }
+
+  async getBookings(req, res, next) {
+    try {
+      const pool = getMySQLPool();
+      const { page = 1, limit = 20, status, eventId } = req.query;
+      const offset = (Number(page) - 1) * Number(limit);
+      const params = [];
+      let where = 'WHERE 1=1';
+
+      if (status) {
+        where += ' AND b.booking_status = ?';
+        params.push(status);
+      }
+
+      if (eventId) {
+        where += ' AND b.event_id = ?';
+        params.push(eventId);
+      }
+
+      const [rows] = await pool.query(
+        `SELECT b.*, u.name as user_name, u.email as user_email, u.phone as user_phone,
+                e.title as event_title, e.start_date as event_date,
+                COALESCE(e.venue_name, e.venue_address, e.venue_city) as event_venue,
+                e.type as event_type,
+                p.payment_id, p.transaction_id, p.status as payment_status, p.amount as payment_amount, p.currency,
+                (SELECT COUNT(*) FROM tickets t WHERE t.booking_id = b.booking_id) as total_tickets
+         FROM bookings b
+         LEFT JOIN users u ON b.user_id = u.user_id
+         LEFT JOIN events e ON b.event_id = e.event_id
+         LEFT JOIN payments p ON p.booking_id = b.booking_id
+         ${where}
+         ORDER BY b.created_at DESC
+         LIMIT ? OFFSET ?`,
+        [...params, Number(limit), offset]
+      );
+
+      const [[count]] = await pool.query(
+        `SELECT COUNT(*) total FROM bookings b ${where}`,
+        params
+      );
+
+      // Transform data to match frontend expected structure
+        const transformedData = rows.map(row => ({
+          id: row.booking_id,
+          orderId: row.order_id || row.booking_number,
+          bookingNumber: row.booking_number,
+          status: row.booking_status,
+          amount: row.payment_amount || row.total_amount,
+          currency: row.currency || 'INR',
+          transactionId: row.transaction_id || row.payment_id,
+        event: {
+          id: row.event_id,
+          title: row.event_title,
+          startDate: row.event_date,
+          venue: row.event_type === 'online' ? 'Online Event' : row.event_venue,
+          type: row.event_type,
+        },
+        user: {
+          id: row.user_id,
+          name: row.user_name,
+          email: row.user_email,
+          phone: row.user_phone,
+        },
+        totalTickets: row.total_tickets,
+        paymentStatus: row.payment_status,
+        createdAt: row.created_at,
+      }));
+
+      res.status(200).json({
+        success: true,
+        data: transformedData,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total: count.total,
+          pages: Math.ceil(count.total / Number(limit))
+        }
+      });
+    } catch (error) { next(error); }
+  }
+
+  async getAllOrganizers(req, res, next) {
+    try {
+      const pool = getMySQLPool();
+      const { page = 1, limit = 20, status, search } = req.query;
+      const offset = (Number(page) - 1) * Number(limit);
+      const params = [];
+      let where = 'WHERE u.role = "organizer"';
+
+      if (status) {
+        where += ' AND u.kyc_status = ?';
+        params.push(status);
+      }
+
+      if (search) {
+        where += ' AND (u.name LIKE ? OR u.email LIKE ? OR o.name LIKE ?)';
+        const searchTerm = `%${search}%`;
+        params.push(searchTerm, searchTerm, searchTerm);
+      }
+
+      const [rows] = await pool.query(
+        `SELECT u.*, o.name as organization_name, o.description as organization_description, o.website, o.logo,
+                (SELECT COUNT(*) FROM events e WHERE e.organizer_id = u.user_id) as total_events,
+                (SELECT COUNT(*) FROM bookings b JOIN events e ON b.event_id = e.event_id WHERE e.organizer_id = u.user_id AND b.booking_status = 'confirmed') as total_bookings
+         FROM users u
+         LEFT JOIN organizations o ON u.user_id = o.owner_id
+         ${where}
+         ORDER BY u.created_at DESC
+         LIMIT ? OFFSET ?`,
+        [...params, Number(limit), offset]
+      );
+
+      const [[count]] = await pool.query(
+        `SELECT COUNT(*) total FROM users u LEFT JOIN organizations o ON u.user_id = o.owner_id ${where}`,
+        params
+      );
+
+      // Transform data to match frontend expected structure
+      const transformedData = rows.map(row => ({
+        id: row.user_id,
+        displayId: row.display_id,
+        title: row.organization_name || row.name,
+        city: row.organization_name ? 'Organization' : 'Individual',
+        owner: row.name,
+        submittedAt: row.created_at,
+        status: row.kyc_status === 'verified' ? 'approved' : row.kyc_status === 'rejected' ? 'rejected' : 'pending',
+        email: row.email,
+        phone: row.phone,
+        totalEvents: row.total_events,
+        totalBookings: row.total_bookings,
+        organizationName: row.organization_name,
+        organizationDescription: row.organization_description,
+        website: row.website,
+        logo: row.logo,
+      }));
+
+      res.status(200).json({
+        success: true,
+        data: transformedData,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total: count.total,
+          pages: Math.ceil(count.total / Number(limit))
+        }
+      });
     } catch (error) { next(error); }
   }
 }

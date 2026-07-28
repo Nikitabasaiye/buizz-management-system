@@ -21,6 +21,15 @@ const validate = (req, res, next) => {
 
 router.post('/phonepe/callback', bookingController.handlePhonePeCallback);
 
+router.get(
+  '/verify/:orderId',
+  [
+    param('orderId').notEmpty().withMessage('Order ID is required'),
+    validate
+  ],
+  bookingController.verifyPayment
+);
+
 router.use(authenticate);
 
 router.get('/', bookingController.getUserBookings);
@@ -35,7 +44,11 @@ router.post(
     body('quantity').isInt({ min: 1, max: 10 }).withMessage('Quantity must be between 1 and 10'),
     body('customerEmail').isEmail().withMessage('Valid email is required'),
     body('customerName').notEmpty().withMessage('Customer name is required'),
-    body('customerPhone').optional().isMobilePhone().withMessage('Valid phone number required'),
+    body('customerPhone').notEmpty().isMobilePhone().withMessage('Valid phone number required'),
+    body('customerPhoneVerificationToken').isString().isLength({ min: 64, max: 64 })
+      .withMessage('Customer phone verification is required'),
+    body('paymentMode').optional().isIn(['Cash', 'UPI', 'Razorpay', 'Other', 'Complimentary']).withMessage('Invalid offline payment mode'),
+    body('paymentReference').optional().trim(),
     validate
   ],
   offlineBookingController.createOfflineBooking
@@ -51,18 +64,12 @@ router.post(
     body('eventId').notEmpty().isInt({ min: 1 }).withMessage('Valid event ID is required'),
     body('ticketTypeId').notEmpty().isInt({ min: 1 }).withMessage('Valid ticket type ID is required'),
     body('quantity').optional().isInt({ min: 1, max: 10 }).withMessage('Quantity must be between 1 and 10'),
+    body('platformFee').optional().isFloat({ min: 0 }),
+    body('convenienceFee').optional().isFloat({ min: 0 }),
+    body('taxes').optional().isFloat({ min: 0 }),
     validate
   ],
   bookingController.initiateBooking
-);
-
-router.get(
-  '/verify/:orderId',
-  [
-    param('orderId').notEmpty().withMessage('Order ID is required'),
-    validate
-  ],
-  bookingController.verifyPayment
 );
 
 // Privacy-protected organizer booking endpoints
@@ -89,6 +96,18 @@ router.get(
     validate
   ],
   bookingController.getEventAttendees
+);
+
+// Admin/Super Admin endpoint to get all bookings
+router.get(
+  '/management',
+  requirePermission(PERMISSIONS.BOOKING_READ),
+  [
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+    validate
+  ],
+  bookingController.getAllBookings
 );
 
 router.get(

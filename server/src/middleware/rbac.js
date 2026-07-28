@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { AppError } = require('./errorHandler');
-const { getRedisClient } = require('../database/redis');
+// const { getRedisClient } = require('../database/redis');
 const userRepository = require('../modules/users/user.repository');
 const { hasPermission, hasAnyPermission, hasAllPermissions } = require('../config/permissions');
 const logger = require('../utils/logger');
@@ -11,32 +11,70 @@ const logger = require('../utils/logger');
  */
 const authenticate = async (req, res, next) => {
   try {
-    // Extract token from cookie or Authorization header
-    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    // Prefer explicit bearer auth over cookies so role-specific dashboards can
+    // override stale customer/organizer cookies in the same browser.
+    const token = req.headers.authorization?.split(' ')[1] || req.cookies.token;
 
     if (!token) {
+      logger.warn(`Authentication failed: No token provided for ${req.path}`);
       return next(new AppError('Authentication required', 401));
     }
 
     // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Check if token is blacklisted (logout)
-    const redis = getRedisClient();
-    const isBlacklisted = await redis.get(`blacklist:${token}`);
-    
-    if (isBlacklisted) {
-      return next(new AppError('Token has been revoked', 401));
+    logger.info(`Token verified for user ID: ${decoded.id}, type: ${decoded.type}`);
+
+    // Admin and super-admin tokens are issued from the admins table. Shared
+    // platform routes (support, KYC, analytics, etc.) use this middleware too,
+    // so resolve those tokens before attempting a users-table lookup.
+    if (decoded.type === 'admin') {
+      const adminRepository = require('../modules/admin/admin.repository');
+      const admin = await adminRepository.findById(decoded.id);
+
+      if (!admin) {
+        return next(new AppError('Admin not found', 401));
+      }
+      if (!admin.is_active) {
+        return next(new AppError('Account is deactivated', 403));
+      }
+
+      req.auth = decoded;
+      req.admin = {
+        id: String(admin.id),
+        name: admin.name,
+        email: admin.email,
+        role: 'admin',
+        isSuperAdmin: Boolean(admin.is_super_admin),
+        permissions: admin.permissions || [],
+      };
+      req.user = {
+        id: String(admin.id),
+        name: admin.name,
+        email: admin.email,
+        role: admin.is_super_admin ? 'super_admin' : 'admin',
+        permissions: admin.permissions || [],
+        isVerified: true,
+      };
+
+      logger.info(`Admin authenticated: ${admin.email} (${req.user.role})`);
+      return next();
     }
+    
+    // Check if token is blacklisted (logout) - Redis disabled
+    // const redis = getRedisClient();
+    // const isBlacklisted = await redis.get(`blacklist:${token}`);
+    // if (isBlacklisted) return next(new AppError('Token has been revoked', 401));
 
     // Load user from database
     const user = await userRepository.findById(decoded.id);
     
     if (!user) {
+      logger.warn(`Authentication failed: User not found for ID ${decoded.id}`);
       return next(new AppError('User not found', 401));
     }
 
     if (!user.isActive) {
+      logger.warn(`Authentication failed: Account deactivated for user ${user.email}`);
       return next(new AppError('Account is deactivated', 403));
     }
 
@@ -54,9 +92,10 @@ const authenticate = async (req, res, next) => {
       permissions: require('../config/permissions').getRolePermissions(user.role)
     };
 
-    logger.info(`User authenticated: ${user.email} (${user.role})`);
+    logger.info(`User authenticated: ${user.email} (${user.role}) with permissions: ${req.user.permissions.length}`);
     next();
   } catch (error) {
+    logger.error(`Authentication error: ${error.message}`);
     if (error.name === 'JsonWebTokenError') {
       return next(new AppError('Invalid token', 401));
     }
@@ -93,6 +132,7 @@ const authorize = (...roles) => {
 const requirePermission = (...permissions) => {
   return (req, res, next) => {
     if (!req.user) {
+      logger.warn(`Permission check failed: No user authenticated for ${req.path}`);
       return next(new AppError('Authentication required', 401));
     }
 
@@ -100,8 +140,10 @@ const requirePermission = (...permissions) => {
       hasPermission(req.user.role, permission)
     );
 
+    logger.info(`Permission check for ${req.user.email} (${req.user.role}): Required [${permissions.join(', ')}], Has: ${hasRequiredPermission}`);
+
     if (!hasRequiredPermission) {
-      logger.warn(`Permission denied for ${req.user.email}: Required ${permissions.join(', ')}`);
+      logger.warn(`Permission denied for ${req.user.email}: Required ${permissions.join(', ')}, User role: ${req.user.role}, User permissions: ${req.user.permissions.join(', ')}`);
       return next(new AppError('Insufficient permissions', 403));
     }
 
@@ -230,22 +272,7 @@ const userRateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
       return next();
     }
 
-    const redis = getRedisClient();
-    const key = `ratelimit:user:${req.user.id}`;
-    
-    const requests = await redis.incr(key);
-    
-    if (requests === 1) {
-      await redis.expire(key, Math.floor(windowMs / 1000));
-    }
-
-    if (requests > maxRequests) {
-      return next(new AppError('Too many requests, please try again later', 429));
-    }
-
-    res.setHeader('X-RateLimit-Limit', maxRequests);
-    res.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - requests));
-
+    // Redis disabled - skip user rate limiting
     next();
   };
 };

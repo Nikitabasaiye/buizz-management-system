@@ -14,7 +14,7 @@ router.get('/', async (req, res, next) => {
     const { page = 1, limit = 20, role, status } = req.query;
     const offset = (page - 1) * limit;
     
-    let query = 'SELECT user_id, name, email, role, phone, is_active, is_verified, created_at, last_login FROM users WHERE 1=1';
+    let query = 'SELECT user_id, display_id, name, email, role, phone, is_active, is_verified, created_at, last_login FROM users WHERE 1=1';
     const params = [];
     
     if (role) {
@@ -50,7 +50,7 @@ router.get('/:id', async (req, res, next) => {
   try {
     const pool = getMySQLPool();
     const [users] = await pool.query(
-      'SELECT user_id, name, email, role, phone, is_active, is_verified, created_at, last_login FROM users WHERE user_id = ?',
+      'SELECT user_id, display_id, name, email, role, phone, is_active, is_verified, created_at, last_login FROM users WHERE user_id = ?',
       [req.params.id]
     );
     

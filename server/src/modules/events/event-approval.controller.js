@@ -2,8 +2,19 @@ const eventApprovalService = require('./event-approval.service');
 
 const getAllRequests = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
-    const result = await eventApprovalService.getAllRequests(parseInt(page), parseInt(limit), status);
+    const { page = 1, limit = 20, status, type } = req.query;
+
+    if (type === 'organizer') {
+      const adminController = require('../admin/admin.controller');
+      return adminController.getAllOrganizers(req, res, next);
+    }
+
+    const result = await eventApprovalService.getAllRequests(
+      parseInt(page),
+      parseInt(limit),
+      status,
+      req.user?.role
+    );
     res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -48,7 +59,7 @@ const adminReview = async (req, res, next) => {
       result = await eventApprovalService.approveByAdmin(id, req.user.id, comments);
       res.status(200).json({ 
         success: true, 
-        message: 'Approval request updated successfully. Pending super admin approval.',
+        message: 'Admin approval saved. Awaiting Super Admin final approval.',
         data: result 
       });
     } else if (status === 'rejected') {

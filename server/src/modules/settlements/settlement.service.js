@@ -2,7 +2,7 @@ const settlementRepository = require('./settlement.repository');
 const { AppError } = require('../../middleware/errorHandler');
 const logger = require('../../utils/logger');
 
-const PLATFORM_FEE_PERCENT = Number(process.env.PLATFORM_FEE_PERCENT || 2);
+const PLATFORM_FEE_PERCENT = Number(process.env.PLATFORM_FEE_PERCENT || 0);
 const SETTLEMENT_HOLD_DAYS = Number(process.env.SETTLEMENT_HOLD_DAYS || 4);
 
 const roundMoney = (value) => Number((Math.round(Number(value) * 100) / 100).toFixed(2));

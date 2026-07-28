@@ -2,21 +2,18 @@ const { getMySQLPool } = require('../database/mysql');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
+const parseJson = (val, fallback) => {
+  if (!val) return fallback;
+  if (typeof val !== 'string') return val;
+  try { return JSON.parse(val); } catch { return fallback; }
+};
+
 class OrganizerAnalyticsService {
-  /**
-   * Get comprehensive organizer dashboard data
-   */
   async getOrganizerDashboard(organizerId) {
     try {
-      const pool = getMySQLPool();
-      
-      // Get organizer profile
       const organizer = await this.getOrganizerProfile(organizerId);
-      if (!organizer) {
-        throw new AppError('Organizer not found', 404);
-      }
+      if (!organizer) throw new AppError('Organizer not found', 404);
 
-      // Get all organizer data in parallel
       const [
         events,
         bookingSummary,
@@ -24,7 +21,7 @@ class OrganizerAnalyticsService {
         eventPerformance,
         kycDetails,
         settlementHistory,
-        auditHistory
+        auditHistory,
       ] = await Promise.all([
         this.getOrganizerEvents(organizerId),
         this.getBookingSummary(organizerId),
@@ -32,7 +29,7 @@ class OrganizerAnalyticsService {
         this.getEventPerformance(organizerId),
         this.getKycDetails(organizerId),
         this.getSettlementHistory(organizerId),
-        this.getAuditHistory(organizerId)
+        this.getAuditHistory(organizerId),
       ]);
 
       return {
@@ -44,7 +41,7 @@ class OrganizerAnalyticsService {
         kycDetails,
         settlementHistory,
         auditHistory,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
       };
     } catch (error) {
       logger.error('Failed to get organizer dashboard', { error: error.message, organizerId });
@@ -52,14 +49,10 @@ class OrganizerAnalyticsService {
     }
   }
 
-  /**
-   * Get organizer profile details
-   */
   async getOrganizerProfile(organizerId) {
     const pool = getMySQLPool();
-    
     const [users] = await pool.query(
-      `SELECT 
+      `SELECT
          u.*,
          COUNT(DISTINCT e.event_id) as total_events,
          COUNT(DISTINCT CASE WHEN e.status = 'published' THEN e.event_id END) as published_events,
@@ -76,18 +69,13 @@ class OrganizerAnalyticsService {
        GROUP BY u.user_id`,
       [organizerId]
     );
-
     return users[0] || null;
   }
 
-  /**
-   * Get all organizer events with detailed stats
-   */
   async getOrganizerEvents(organizerId) {
     const pool = getMySQLPool();
-    
     const [events] = await pool.query(
-      `SELECT 
+      `SELECT
          e.*,
          COUNT(DISTINCT b.booking_id) as total_bookings,
          COUNT(DISTINCT CASE WHEN b.status = 'confirmed' THEN b.booking_id END) as confirmed_bookings,
@@ -96,7 +84,7 @@ class OrganizerAnalyticsService {
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN b.quantity END), 0) as tickets_sold,
          COALESCE(AVG(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as avg_ticket_price,
          (e.total_seats - e.available_seats) as seats_booked,
-         ROUND(((e.total_seats - e.available_seats) / e.total_seats * 100), 2) as occupancy_rate
+         ROUND(((e.total_seats - e.available_seats) / NULLIF(e.total_seats, 0) * 100), 2) as occupancy_rate
        FROM events e
        LEFT JOIN bookings b ON e.event_id = b.event_id
        LEFT JOIN payments p ON b.booking_id = p.booking_id
@@ -105,19 +93,14 @@ class OrganizerAnalyticsService {
        ORDER BY e.created_at DESC`,
       [organizerId]
     );
-
     return events;
   }
 
-  /**
-   * Get booking summary and statistics
-   */
   async getBookingSummary(organizerId) {
     const pool = getMySQLPool();
-    
-    // Overall booking stats
+
     const [[bookingStats]] = await pool.query(
-      `SELECT 
+      `SELECT
          COUNT(DISTINCT b.booking_id) as total_bookings,
          COUNT(DISTINCT CASE WHEN b.status = 'confirmed' THEN b.booking_id END) as confirmed_bookings,
          COUNT(DISTINCT CASE WHEN b.status = 'cancelled' THEN b.booking_id END) as cancelled_bookings,
@@ -131,9 +114,8 @@ class OrganizerAnalyticsService {
       [organizerId]
     );
 
-    // Monthly booking trends
     const [monthlyTrends] = await pool.query(
-      `SELECT 
+      `SELECT
          DATE_FORMAT(b.created_at, '%Y-%m') as month,
          COUNT(b.booking_id) as bookings_count,
          SUM(b.quantity) as tickets_sold,
@@ -148,9 +130,8 @@ class OrganizerAnalyticsService {
       [organizerId]
     );
 
-    // Top customers
     const [topCustomers] = await pool.query(
-      `SELECT 
+      `SELECT
          u.user_id,
          u.name,
          u.email,
@@ -168,27 +149,18 @@ class OrganizerAnalyticsService {
       [organizerId]
     );
 
-    return {
-      stats: bookingStats,
-      monthlyTrends,
-      topCustomers
-    };
+    return { stats: bookingStats, monthlyTrends, topCustomers };
   }
 
-  /**
-   * Get detailed revenue analysis with profit/loss
-   */
   async getRevenueAnalysis(organizerId) {
     const pool = getMySQLPool();
-    
-    // Overall revenue stats
+
     const [[revenueStats]] = await pool.query(
-      `SELECT 
+      `SELECT
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as total_gross_revenue,
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.platform_fee END), 0) as total_platform_fees,
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN (p.amount - p.platform_fee) END), 0) as total_net_revenue,
          COALESCE(SUM(CASE WHEN p.status = 'refunded' THEN p.amount END), 0) as total_refunds,
-         COALESCE(SUM(CASE WHEN p.status = 'failed' THEN p.amount END), 0) as failed_payments,
          COUNT(DISTINCT CASE WHEN p.status = 'completed' THEN p.payment_id END) as successful_payments,
          COUNT(DISTINCT CASE WHEN p.status = 'failed' THEN p.payment_id END) as failed_payment_count,
          ROUND(AVG(CASE WHEN p.status = 'completed' THEN p.amount END), 2) as avg_transaction_value
@@ -199,17 +171,15 @@ class OrganizerAnalyticsService {
       [organizerId]
     );
 
-    // Revenue by event
     const [eventRevenue] = await pool.query(
-      `SELECT 
+      `SELECT
          e.event_id,
          e.title as event_title,
          e.status as event_status,
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as gross_revenue,
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.platform_fee END), 0) as platform_fees,
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN (p.amount - p.platform_fee) END), 0) as net_revenue,
-         COUNT(CASE WHEN p.status = 'completed' THEN p.payment_id END) as successful_payments,
-         ROUND(AVG(CASE WHEN p.status = 'completed' THEN p.amount END), 2) as avg_ticket_price
+         COUNT(CASE WHEN p.status = 'completed' THEN p.payment_id END) as successful_payments
        FROM events e
        LEFT JOIN bookings b ON e.event_id = b.event_id
        LEFT JOIN payments p ON b.booking_id = p.booking_id
@@ -219,9 +189,8 @@ class OrganizerAnalyticsService {
       [organizerId]
     );
 
-    // Monthly revenue trends
     const [monthlyRevenue] = await pool.query(
-      `SELECT 
+      `SELECT
          DATE_FORMAT(p.created_at, '%Y-%m') as month,
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as gross_revenue,
          COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.platform_fee END), 0) as platform_fees,
@@ -237,34 +206,13 @@ class OrganizerAnalyticsService {
       [organizerId]
     );
 
-    // Calculate profit/loss (simplified - you can add more cost factors)
-    const platformFeePercent = process.env.PLATFORM_FEE_PERCENT || 2;
-    const profitLoss = {
-      totalRevenue: parseFloat(revenueStats.total_net_revenue),
-      totalCosts: parseFloat(revenueStats.total_platform_fees),
-      netProfit: parseFloat(revenueStats.total_net_revenue),
-      profitMargin: revenueStats.total_gross_revenue > 0 
-        ? ((revenueStats.total_net_revenue / revenueStats.total_gross_revenue) * 100).toFixed(2)
-        : 0,
-      platformFeePercent: parseFloat(platformFeePercent)
-    };
-
-    return {
-      stats: revenueStats,
-      eventRevenue,
-      monthlyRevenue,
-      profitLoss
-    };
+    return { stats: revenueStats, eventRevenue, monthlyRevenue };
   }
 
-  /**
-   * Get event performance metrics
-   */
   async getEventPerformance(organizerId) {
     const pool = getMySQLPool();
-    
     const [performance] = await pool.query(
-      `SELECT 
+      `SELECT
          e.event_id,
          e.title,
          e.status,
@@ -273,12 +221,9 @@ class OrganizerAnalyticsService {
          e.total_seats,
          e.available_seats,
          (e.total_seats - e.available_seats) as seats_sold,
-         ROUND(((e.total_seats - e.available_seats) / e.total_seats * 100), 2) as occupancy_rate,
+         ROUND(((e.total_seats - e.available_seats) / NULLIF(e.total_seats, 0) * 100), 2) as occupancy_rate,
          COUNT(DISTINCT b.booking_id) as total_bookings,
-         COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as revenue,
-         COALESCE(AVG(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as avg_ticket_price,
-         e.views,
-         ROUND((COUNT(DISTINCT b.booking_id) / NULLIF(e.views, 0) * 100), 2) as conversion_rate
+         COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as revenue
        FROM events e
        LEFT JOIN bookings b ON e.event_id = b.event_id
        LEFT JOIN payments p ON b.booking_id = p.booking_id
@@ -287,46 +232,64 @@ class OrganizerAnalyticsService {
        ORDER BY occupancy_rate DESC`,
       [organizerId]
     );
-
     return performance;
   }
 
-  /**
-   * Get KYC and verification details
-   */
   async getKycDetails(organizerId) {
     const pool = getMySQLPool();
-    
     const [kycData] = await pool.query(
-      `SELECT 
+      `SELECT
          u.kyc_status,
          u.bank_verification_status,
-         kyc.*,
+         k.id,
+         k.user_id,
+         k.role,
+         k.status,
+         k.bank_status,
+         k.legal_name,
+         k.business_name,
+         k.pan_number,
+         k.gst_number,
+         k.aadhaar_last4,
+         k.address_line,
+         k.city,
+         k.state,
+         k.pincode,
+         k.documents,
+         k.bank_documents,
+         k.submitted_at,
+         k.reviewed_at,
+         k.rejection_reason,
+         k.review_notes,
+         k.created_at,
          bank.account_holder_name,
          bank.bank_name,
          bank.bank_ifsc_code,
          bank.verification_status as bank_account_status,
          bank.verified_at as bank_verified_at
        FROM users u
-       LEFT JOIN user_kyc_verifications kyc ON u.user_id = kyc.user_id
+       LEFT JOIN user_kyc_verifications k ON u.user_id = k.user_id
        LEFT JOIN organizer_bank_accounts bank ON u.user_id = bank.organizer_id
        WHERE u.user_id = ?
-       ORDER BY kyc.created_at DESC
+       ORDER BY k.created_at DESC
        LIMIT 1`,
       [organizerId]
     );
 
-    return kycData[0] || null;
+    if (!kycData[0]) return null;
+
+    const row = kycData[0];
+    return {
+      ...row,
+      documents: parseJson(row.documents, []),
+      bank_documents: parseJson(row.bank_documents, []),
+    };
   }
 
-  /**
-   * Get settlement history
-   */
   async getSettlementHistory(organizerId) {
     const pool = getMySQLPool();
-    
     const [settlements] = await pool.query(
-      `SELECT 
+      `SELECT
          s.*,
          e.title as event_title,
          COUNT(si.id) as settlement_items_count,
@@ -341,61 +304,44 @@ class OrganizerAnalyticsService {
        ORDER BY s.created_at DESC`,
       [organizerId]
     );
-
     return settlements;
   }
 
-  /**
-   * Get audit history
-   */
   async getAuditHistory(organizerId) {
     const pool = getMySQLPool();
-    
     const [auditLogs] = await pool.query(
-      `SELECT 
-         action,
-         action_type,
-         description,
-         ip_address,
-         created_at,
-         metadata
+      `SELECT action, action_type, description, ip_address, created_at, metadata
        FROM audit_logs
        WHERE user_id = ?
        ORDER BY created_at DESC
        LIMIT 100`,
       [organizerId]
     );
-
-    return auditLogs.map(log => ({
+    return auditLogs.map((log) => ({
       ...log,
-      metadata: log.metadata ? JSON.parse(log.metadata) : null
+      metadata: parseJson(log.metadata, null),
     }));
   }
 
-  /**
-   * Get all organizers list with summary stats
-   */
   async getAllOrganizers(filters = {}) {
     const pool = getMySQLPool();
-    
     const { page = 1, limit = 20, status, search } = filters;
     const offset = (page - 1) * limit;
-    
+
     let whereClause = "WHERE u.role = 'organizer'";
     const params = [];
-    
+
     if (status) {
       whereClause += ' AND u.kyc_status = ?';
       params.push(status);
     }
-    
     if (search) {
       whereClause += ' AND (u.name LIKE ? OR u.email LIKE ?)';
       params.push(`%${search}%`, `%${search}%`);
     }
-    
+
     const [organizers] = await pool.query(
-      `SELECT 
+      `SELECT
          u.user_id,
          u.name,
          u.email,
@@ -405,9 +351,7 @@ class OrganizerAnalyticsService {
          u.created_at,
          u.last_login,
          COUNT(DISTINCT e.event_id) as total_events,
-         COUNT(DISTINCT CASE WHEN e.status = 'completed' THEN e.event_id END) as completed_events,
-         COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as total_revenue,
-         COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.platform_fee END), 0) as platform_fees_paid
+         COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount END), 0) as total_revenue
        FROM users u
        LEFT JOIN events e ON u.user_id = e.organizer_id
        LEFT JOIN bookings b ON e.event_id = b.event_id
@@ -430,36 +374,25 @@ class OrganizerAnalyticsService {
         page: parseInt(page),
         limit: parseInt(limit),
         total: parseInt(total),
-        pages: Math.ceil(total / limit)
-      }
+        pages: Math.ceil(total / limit),
+      },
     };
   }
 
-  /**
-   * Export organizer data for reports
-   */
   async exportOrganizerData(organizerId, format = 'json') {
     const dashboard = await this.getOrganizerDashboard(organizerId);
-    
-    if (format === 'csv') {
-      // Convert to CSV format - implement as needed
-      return this.convertToCSV(dashboard);
-    }
-    
+    if (format === 'csv') return this.convertToCSV(dashboard);
     return dashboard;
   }
 
   convertToCSV(data) {
-    // Simple CSV conversion - expand as needed
-    const csv = [];
-    csv.push('Field,Value');
-    csv.push(`Organizer Name,${data.organizer.name}`);
-    csv.push(`Email,${data.organizer.email}`);
-    csv.push(`Total Events,${data.organizer.total_events}`);
-    csv.push(`Total Revenue,${data.organizer.total_revenue}`);
-    csv.push(`KYC Status,${data.organizer.kyc_status}`);
-    csv.push(`Bank Verification,${data.organizer.bank_verification_status}`);
-    
+    const csv = ['Field,Value'];
+    csv.push(`Organizer Name,${data.organizer?.name ?? ''}`);
+    csv.push(`Email,${data.organizer?.email ?? ''}`);
+    csv.push(`Total Events,${data.organizer?.total_events ?? 0}`);
+    csv.push(`Total Revenue,${data.organizer?.total_revenue ?? 0}`);
+    csv.push(`KYC Status,${data.organizer?.kyc_status ?? ''}`);
+    csv.push(`Bank Verification,${data.organizer?.bank_verification_status ?? ''}`);
     return csv.join('\n');
   }
 }

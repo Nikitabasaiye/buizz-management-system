@@ -10,7 +10,6 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- ══════════════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS users (
   user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  display_id VARCHAR(20) NULL COMMENT 'Role-prefixed ID like USR-0001, ORG-0001',
   name VARCHAR(150) NOT NULL,
   email VARCHAR(255) NOT NULL,
   password VARCHAR(255) NOT NULL,
@@ -18,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   role ENUM('super_admin', 'admin', 'organizer', 'user', 'influencer') NOT NULL DEFAULT 'user',
   organization_id BIGINT UNSIGNED NULL,
   avatar VARCHAR(500) NULL,
+  google_id VARCHAR(255) NULL,
   is_verified TINYINT(1) NOT NULL DEFAULT 0,
   kyc_status ENUM('not_submitted', 'pending', 'verified', 'rejected') NOT NULL DEFAULT 'not_submitted',
   bank_verification_status ENUM('not_submitted', 'pending', 'verified', 'rejected') NOT NULL DEFAULT 'not_submitted',
@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
   UNIQUE KEY users_email_unique (email),
-  UNIQUE KEY users_display_id_unique (display_id),
   KEY users_organization_id_index (organization_id),
   KEY users_role_index (role),
   KEY users_is_active_index (is_active),

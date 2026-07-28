@@ -31,7 +31,7 @@ class OrganizationRepository {
       `SELECT o.*, u.name as owner_name, u.email as owner_email
        FROM organizations o
        LEFT JOIN users u ON o.owner_id = u.user_id
-       WHERE o.id = ? AND o.is_active = 1`,
+       WHERE o.org_id = ? AND o.is_active = 1`,
       [id]
     );
     return rows[0] || null;
@@ -68,7 +68,7 @@ class OrganizationRepository {
 
       values.push(id);
       await connection.execute(
-        `UPDATE organizations SET ${fields.join(', ')} WHERE id = ?`,
+        `UPDATE organizations SET ${fields.join(', ')} WHERE org_id = ?`,
         values
       );
 
@@ -80,7 +80,7 @@ class OrganizationRepository {
 
   async deleteById(id) {
     await pool.execute(
-      'UPDATE organizations SET is_active = 0 WHERE id = ?',
+      'UPDATE organizations SET is_active = 0 WHERE org_id = ?',
       [id]
     );
   }

@@ -18,6 +18,7 @@ const {
   requireHTTPS
 } = require('./middleware/security');
 const logger = require('./utils/logger');
+const { getMySQLStatus } = require('./database/mysql');
 
 // Import Admin Routes
 const adminAuthRoutes = require('./modules/auth/admin-auth.routes');
@@ -30,6 +31,7 @@ const analyticsRoutes = require('./modules/analytics/analytics.routes');
 const bookingManagementRoutes = require('./modules/bookings/booking-management.routes');
 const paymentManagementRoutes = require('./modules/payments/payment-management.routes');
 const webhookRoutes = require('./modules/webhooks/webhook.routes');
+const reviewAdminRoutes = require('./modules/reviews/review-admin.routes');
 
 const app = express();
 
@@ -58,27 +60,52 @@ if (process.env.NODE_ENV === 'production') {
   app.use(requireHTTPS);
 }
 
+const parseOrigins = (value) =>
+  (value || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 const allowedOrigins = [
+  ...parseOrigins(process.env.CORS_ORIGINS),
   process.env.ADMIN_FRONTEND_URL,
-  // Development URLs (comment out for production)
-  // 'http://localhost:3001',
-  // 'http://127.0.0.1:3001',
+  process.env.FRONTEND_URL,
+  'https://lightsteelblue-rhinoceros-276495.hostingersite.com',
+  'https://*.hostingersite.com',
+  // Development URLs
+  ...(process.env.NODE_ENV !== 'production'
+    ? [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001'
+      ]
+    : []),
   // Production URLs
   'https://admin.buizz.com',
+  'https://www.buizz.com',
   'https://buizz.com'
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    const isWildcardMatch = allowedOrigins.some((allowedOrigin) => {
+      if (!allowedOrigin.includes('*')) return false;
+      const pattern = allowedOrigin
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '[^.]+');
+      return new RegExp(`^${pattern}$`).test(origin || '');
+    });
+
+    if (!origin || allowedOrigins.includes(origin) || isWildcardMatch) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-buizz-role', 'X-Buizz-Role', 'X-Requested-With']
 }));
 
 // Body Parser
@@ -118,12 +145,15 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
+  const database = getMySQLStatus();
+
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     app: 'admin',
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    database
   });
 });
 
@@ -156,6 +186,9 @@ app.use(`/api/${API_VERSION}/bookings`, bookingManagementRoutes);
 
 // Payment Management
 app.use(`/api/${API_VERSION}/payments`, paymentManagementRoutes);
+
+// Reviews & Ratings Management
+app.use(`/api/${API_VERSION}/reviews`, reviewAdminRoutes);
 
 // Webhooks (Meta WhatsApp)
 app.use(`/api/webhooks`, webhookRoutes);
