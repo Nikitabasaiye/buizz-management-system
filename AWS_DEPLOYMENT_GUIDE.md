@@ -1,5 +1,9 @@
 # Buizz AWS Production Deployment Guide
 
+> For the selected Terraform-based Phase 1 MVP deployment, start with
+> [AWS_MVP_START_HERE.md](./AWS_MVP_START_HERE.md). This older document
+> describes the manual EC2/PM2 path and should not be mixed with that workflow.
+
 > For the full service-selection rationale, storage and ticket architecture,
 > GitHub OIDC CI/CD, DevSecOps controls, cost strategy, performance plan, and
 > explicit Redis/BullMQ/Docker/Kubernetes/GraphQL decisions, read

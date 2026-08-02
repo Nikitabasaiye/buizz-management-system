@@ -34,3 +34,18 @@ client_new_backup/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Terraform local state and plans (remote state is stored in encrypted S3)
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/*-plan.txt
+**/terraform.tfvars
+**/.terraform.lock.hcl.backup
+crash.log
+
+# Deployment runtime files and certificates
+docker/production/env/
+docker/production/certbot/
+deployments/

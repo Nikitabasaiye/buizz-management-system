@@ -1,172 +1,154 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
+const cloudinaryConfig = require('./cloudinary');
 
-// Create upload directories if they don't exist
-const createUploadDirs = () => {
-  const dirs = [
-    path.join(__dirname, '../../storage/kyc-documents'),
-    path.join(__dirname, '../../storage/kyc-documents/pan'),
-    path.join(__dirname, '../../storage/kyc-documents/address-proof'),
-    path.join(__dirname, '../../storage/kyc-documents/aadhaar'),
-    path.join(__dirname, '../../storage/kyc-documents/bank-documents'),
-  ];
-
-  dirs.forEach(dir => {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  });
+const storageRoot = path.join(__dirname, '../../storage/kyc-documents');
+const uploadFolders = {
+  pan: 'pan',
+  address_proof: 'address-proof',
+  aadhaar: 'aadhaar',
+  cancelled_cheque_or_passbook: 'bank-documents',
 };
 
-createUploadDirs();
-
-// Storage configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const docType = req.body.documentType || 'general';
-    let uploadPath = path.join(__dirname, '../../storage/kyc-documents');
-    
-    // Organize by document type
-    if (docType === 'pan') {
-      uploadPath = path.join(uploadPath, 'pan');
-    } else if (docType === 'address_proof') {
-      uploadPath = path.join(uploadPath, 'address-proof');
-    } else if (docType === 'aadhaar') {
-      uploadPath = path.join(uploadPath, 'aadhaar');
-    } else if (docType.includes('bank') || docType === 'cancelled_cheque_or_passbook') {
-      uploadPath = path.join(uploadPath, 'bank-documents');
-    }
-
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const userId = req.user?.id || 'unknown';
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    const docType = req.body.documentType || 'doc';
-    
-    // Create unique filename: userId_docType_timestamp.ext
-    const filename = `${userId}_${docType}_${timestamp}${ext}`;
-    cb(null, filename);
-  }
-});
-
-// File filter - only allow specific file types
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'application/pdf',
-    'image/webp'
-  ];
-
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.webp'];
-  const ext = path.extname(file.originalname).toLowerCase();
-
-  if (allowedTypes.includes(file.mimetype) && allowedExtensions.includes(ext)) {
-    cb(null, true);
-  } else {
-    cb(new AppError('Invalid file type. Only JPG, PNG, GIF, PDF, and WEBP are allowed', 400), false);
-  }
-};
-
-// Multer configuration
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  }
-});
-
-// Cloudinary configuration (optional)
-let cloudinary = null;
-try {
-  cloudinary = require('cloudinary').v2;
-  
-  if (process.env.CLOUDINARY_CLOUD_NAME && 
-      process.env.CLOUDINARY_API_KEY && 
-      process.env.CLOUDINARY_API_SECRET) {
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-      secure: true
-    });
-    logger.info('Cloudinary configured successfully');
-  }
-} catch (error) {
-  logger.info('Cloudinary not configured');
+for (const directory of ['', ...new Set(Object.values(uploadFolders))]) {
+  fs.mkdirSync(path.join(storageRoot, directory), { recursive: true });
 }
 
-// Upload to cloudinary (if configured)
-const uploadToCloudinary = async (filePath, folder = 'kyc-documents') => {
-  if (!cloudinary || !process.env.CLOUDINARY_CLOUD_NAME) {
+const sanitizeSegment = (value, fallback = 'general') => {
+  const cleaned = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || fallback;
+};
+
+const storage = multer.diskStorage({
+  destination: (req, file, callback) => {
+    const documentType = sanitizeSegment(req.body.documentType);
+    const folder = uploadFolders[documentType]
+      || (documentType.includes('bank') ? 'bank-documents' : '');
+    const destination = path.join(storageRoot, folder);
+    fs.mkdirSync(destination, { recursive: true });
+    callback(null, destination);
+  },
+  filename: (req, file, callback) => {
+    const userId = sanitizeSegment(req.user?.id, 'unknown');
+    const documentType = sanitizeSegment(req.body.documentType, 'document');
+    const extension = path.extname(file.originalname).toLowerCase();
+    callback(null, `${userId}_${documentType}_${Date.now()}_${crypto.randomBytes(6).toString('hex')}${extension}`);
+  },
+});
+
+const allowedMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+]);
+const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.webp']);
+
+const fileFilter = (req, file, callback) => {
+  const extension = path.extname(file.originalname).toLowerCase();
+  if (allowedMimeTypes.has(file.mimetype) && allowedExtensions.has(extension)) {
+    callback(null, true);
+    return;
+  }
+  callback(new AppError('Invalid file type. Only JPG, PNG, GIF, PDF, and WEBP are allowed', 400), false);
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: Number(process.env.MAX_UPLOAD_BYTES || 5 * 1024 * 1024) },
+});
+
+const uploadToCloudinary = async (filePath, folder = 'documents', options = {}) => {
+  if (!cloudinaryConfig.isConfigured()) {
+    if (cloudinaryConfig.isRequired()) throw new Error('Cloudinary is required but not configured');
     return null;
   }
 
+  cloudinaryConfig.assertReady();
+  const deliveryType = options.type || (options.private ? 'authenticated' : 'upload');
+  const result = await cloudinaryConfig.cloudinary.uploader.upload(filePath, {
+    folder: `buizz/${String(folder).replace(/^\/+|\/+$/g, '')}`,
+    resource_type: options.resourceType || options.resource_type || 'auto',
+    type: deliveryType,
+    allowed_formats: ['jpg', 'jpeg', 'png', 'pdf', 'gif', 'webp'],
+    use_filename: false,
+    unique_filename: true,
+    overwrite: false,
+    invalidate: true,
+    context: options.context,
+  });
+
+  const format = result.format || path.extname(filePath).slice(1) || undefined;
+  const resourceType = result.resource_type || 'image';
+  const url = deliveryType === 'authenticated'
+    ? cloudinaryConfig.cloudinary.url(result.public_id, {
+      secure: true,
+      sign_url: true,
+      type: deliveryType,
+      resource_type: resourceType,
+      ...(format ? { format } : {}),
+    })
+    : result.secure_url;
+
+  return {
+    url,
+    secureUrl: result.secure_url,
+    publicId: result.public_id,
+    assetId: result.asset_id,
+    format,
+    size: result.bytes,
+    width: result.width,
+    height: result.height,
+    resourceType,
+    deliveryType,
+  };
+};
+
+const deleteFromCloudinary = async (publicId, options = {}) => {
+  if (!publicId || !cloudinaryConfig.isConfigured()) return false;
+  cloudinaryConfig.assertReady();
   try {
-    const result = await cloudinary.uploader.upload(filePath, {
-      folder: folder,
-      resource_type: 'auto',
-      allowed_formats: ['jpg', 'png', 'pdf', 'gif', 'webp']
+    const result = await cloudinaryConfig.cloudinary.uploader.destroy(publicId, {
+      resource_type: options.resourceType || 'image',
+      type: options.deliveryType || 'upload',
+      invalidate: true,
     });
-
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      format: result.format,
-      size: result.bytes
-    };
+    return result.result === 'ok' || result.result === 'not found';
   } catch (error) {
-    logger.error('Cloudinary upload error', { error: error.message });
-    return null;
-  }
-};
-
-// Delete file from cloudinary
-const deleteFromCloudinary = async (publicId) => {
-  if (!cloudinary || !publicId) {
-    return false;
-  }
-
-  try {
-    await cloudinary.uploader.destroy(publicId);
-    return true;
-  } catch (error) {
-    logger.error('Cloudinary delete error', { error: error.message });
+    logger.error('Cloudinary delete failed', { publicId, error: error.message });
     return false;
   }
 };
 
-// Delete local file
 const deleteLocalFile = (filePath) => {
   try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      return true;
-    }
-    return false;
+    if (!filePath || !fs.existsSync(filePath)) return false;
+    fs.unlinkSync(filePath);
+    return true;
   } catch (error) {
-    logger.error('Local file delete error', { error: error.message });
+    logger.error('Local file delete failed', { error: error.message });
     return false;
   }
 };
+
+cloudinaryConfig.configure();
 
 module.exports = {
   upload,
   uploadToCloudinary,
   deleteFromCloudinary,
   deleteLocalFile,
-  cloudinary
+  cloudinary: cloudinaryConfig.cloudinary,
+  isCloudinaryConfigured: cloudinaryConfig.isConfigured,
+  isCloudinaryRequired: cloudinaryConfig.isRequired,
 };

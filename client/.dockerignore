@@ -1,0 +1,8 @@
+node_modules
+.next
+.next-dev
+next-build
+.env*
+!.env.production.example
+*.log
+Dockerfile*

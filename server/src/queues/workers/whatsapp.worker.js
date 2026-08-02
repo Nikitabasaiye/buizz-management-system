@@ -68,6 +68,7 @@ const processJob = async (job) => {
 const createWhatsAppWorker = (connection) => {
   const worker = new Worker(QUEUE_NAMES.WHATSAPP, processJob, {
     connection,
+    prefix: process.env.BULLMQ_PREFIX || 'buizz',
     concurrency: 5,
     limiter: { max: 10, duration: 1000 }, // 10 messages/sec rate limit
   });

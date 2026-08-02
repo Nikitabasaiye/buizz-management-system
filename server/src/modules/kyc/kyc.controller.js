@@ -53,20 +53,21 @@ const getCloudinaryPublicIdFromUrl = (url) => {
 
 const getSignedCloudinaryUrl = (document) => {
   const publicId = document.publicId || getCloudinaryPublicIdFromUrl(document.url);
-  if (!cloudinary || !publicId) return null;
+  if (!publicId) return null;
   const resourceType = getDocumentResourceType(document);
-  const isImagePdf = resourceType === 'image' && String(document.url || document.fileName || '').toLowerCase().includes('.pdf');
-  return cloudinary.url(publicId, {
-    resource_type: resourceType,
-    ...(isImagePdf ? { format: 'pdf' } : {}),
-    sign_url: true,
-    expires_at: Math.floor(Date.now() / 1000) + 300,
-    secure: true,
-  });
+  return mediaService.generateSignedUrl({
+    publicId,
+    resourceType,
+    deliveryType: document.deliveryType || 'authenticated',
+    format: document.format,
+    fileName: document.fileName,
+  }, 300);
 };
 
 const proxyRemoteDocument = async (document, req, res) => {
-  const urls = [getSignedCloudinaryUrl(document), document.url].filter(Boolean);
+  const signedUrl = getSignedCloudinaryUrl(document);
+  const allowStoredUrl = document.deliveryType !== 'authenticated';
+  const urls = [signedUrl, allowStoredUrl ? document.url : null].filter(Boolean);
   let lastStatus = 0;
 
   for (const url of urls) {
@@ -143,13 +144,18 @@ const uploadDocument = async (req, res, next) => {
           data: {
             url: uploadData.url,
             publicId: uploadData.publicId,
+            assetId: uploadData.assetId,
             fileName: req.file.originalname,
             documentType,
             fileSize: uploadData.size,
+            resourceType: uploadData.resourceType,
+            deliveryType: uploadData.deliveryType,
+            format: uploadData.format,
             uploadedAt: new Date(),
           },
         });
       } catch (cloudinaryError) {
+        if (mediaService.isRequired()) throw cloudinaryError;
         // Cloudinary failed, fall back to local storage
         logger.warn('Cloudinary upload failed, falling back to local storage', {
           error: cloudinaryError.message,
@@ -181,6 +187,9 @@ const uploadDocument = async (req, res, next) => {
         });
       }
     } else {
+      if (mediaService.isRequired()) {
+        throw new AppError('Secure document storage is temporarily unavailable', 503);
+      }
       // Fallback to local storage
       const fileData = await uploadService.processUpload(
         req.file,
@@ -248,9 +257,13 @@ const uploadMultipleDocuments = async (req, res, next) => {
         data: uploadedFiles.map((file, index) => ({
           url: file.url,
           publicId: file.publicId,
+          assetId: file.assetId,
           fileName: req.files[index].originalname,
           documentType: documentTypes[index],
           fileSize: file.size,
+          resourceType: file.resourceType,
+          deliveryType: file.deliveryType,
+          format: file.format,
           uploadedAt: new Date(),
         })),
       });
@@ -286,8 +299,11 @@ const getDocument = async (req, res, next) => {
     const document = await kycService.getDocument(filename, req.user || req.admin);
 
     if (document.cloudinaryUrl) {
-      setDocumentCorsHeaders(req, res);
-      return res.redirect(document.cloudinaryUrl);
+      return proxyRemoteDocument({
+        ...document,
+        url: document.cloudinaryUrl,
+        deliveryType: document.deliveryType || 'authenticated',
+      }, req, res);
     }
 
     const fileInfo = uploadService.getLocalFile(document.filePath);

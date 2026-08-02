@@ -6,7 +6,7 @@ const ticketRepository = require('../../repositories/ticket.repository');
 const paymentRepository = require('../../repositories/payment.repository');
 const { QUEUE_NAMES } = require('../../constants');
 const logger = require('../../utils/logger');
-const { uploadToCloudinary, deleteLocalFile } = require('../../config/upload');
+const { uploadToCloudinary, deleteLocalFile, isCloudinaryRequired } = require('../../config/upload');
 
 const JOB_TYPES = {
   TICKET_PDF: 'ticket_pdf',
@@ -38,13 +38,21 @@ const processJob = async (job) => {
       let cloudinaryUrl = null;
       let cloudinaryPublicId = null;
       
-      const cloudinaryResult = await uploadToCloudinary(filePath, 'ticket-pdfs');
+      const cloudinaryResult = await uploadToCloudinary(filePath, `tickets/${ticketNumber}`, {
+        private: true,
+        resourceType: 'raw',
+        context: { ticket_number: String(ticketNumber) },
+      });
       if (cloudinaryResult) {
         cloudinaryUrl = cloudinaryResult.url;
         cloudinaryPublicId = cloudinaryResult.publicId;
         // Delete local file after successful Cloudinary upload
         deleteLocalFile(filePath);
         logger.info('[PDF Worker] Ticket PDF uploaded to Cloudinary', { ticketNumber, cloudinaryUrl });
+      }
+
+      if (!cloudinaryResult && isCloudinaryRequired()) {
+        throw new Error('Ticket PDF storage failed because Cloudinary is required');
       }
 
       const publicUrl = cloudinaryUrl || `/storage/pdfs/${fileName}`;
@@ -66,13 +74,22 @@ const processJob = async (job) => {
       let cloudinaryUrl = null;
       let cloudinaryPublicId = null;
       
-      const cloudinaryResult = await uploadToCloudinary(filePath, 'invoice-pdfs');
+      const cloudinaryResult = await uploadToCloudinary(filePath, `tickets/invoices/${orderId}`, {
+        private: true,
+        resourceType: 'raw',
+        context: { order_id: String(orderId) },
+      });
       if (cloudinaryResult) {
         cloudinaryUrl = cloudinaryResult.url;
         cloudinaryPublicId = cloudinaryResult.publicId;
         // Delete local file after successful Cloudinary upload
         deleteLocalFile(filePath);
         logger.info('[PDF Worker] Invoice PDF uploaded to Cloudinary', { orderId, cloudinaryUrl });
+      }
+
+
+      if (!cloudinaryResult && isCloudinaryRequired()) {
+        throw new Error('Invoice PDF storage failed because Cloudinary is required');
       }
 
       const publicUrl = cloudinaryUrl || `/storage/pdfs/${fileName}`;
@@ -90,6 +107,7 @@ const processJob = async (job) => {
 const createPdfWorker = (connection) => {
   const worker = new Worker(QUEUE_NAMES.PDF_GENERATION, processJob, {
     connection,
+    prefix: process.env.BULLMQ_PREFIX || 'buizz',
     concurrency: 3,
   });
 

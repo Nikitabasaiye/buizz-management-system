@@ -578,11 +578,11 @@ Example:
 
 ```text
 # .github/CODEOWNERS
-/server/src/modules/auth/       @Nikitabasaiye
-/server/src/modules/payments/   @Nikitabasaiye
-/server/src/modules/kyc/        @Nikitabasaiye
-/.github/workflows/             @Nikitabasaiye
-/infra/                         @Nikitabasaiye
+/server/src/modules/auth/       @devopsbuizz
+/server/src/modules/payments/   @devopsbuizz
+/server/src/modules/kyc/        @devopsbuizz
+/.github/workflows/             @devopsbuizz
+/infra/                         @devopsbuizz
 ```
 
 Create GitHub Environments:
@@ -727,7 +727,7 @@ The production role trust policy must constrain both repository and environment:
       "StringEquals": {
         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
         "token.actions.githubusercontent.com:sub":
-          "repo:Nikitabasaiye/buizz-management-system:environment:production"
+          "repo:devopsbuizz/buizz-management-system:environment:production"
       }
     }
   }]

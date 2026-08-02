@@ -1,6 +1,11 @@
 const path = require('path');
 const fs = require('fs');
-const { uploadToCloudinary, deleteFromCloudinary, deleteLocalFile } = require('../config/upload');
+const {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+  deleteLocalFile,
+  isCloudinaryRequired,
+} = require('../config/upload');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
@@ -29,16 +34,25 @@ class UploadService {
       try {
         const cloudinaryResult = await uploadToCloudinary(
           file.path,
-          `kyc-documents/${userId}/${documentType}`
+          `${documentType}/${userId}`,
+          {
+            private: !String(documentType).startsWith('events/'),
+            context: { owner: String(userId), document_type: String(documentType) },
+          },
         );
 
         if (cloudinaryResult) {
           fileData.cloudinaryUrl = cloudinaryResult.url;
           fileData.cloudinaryPublicId = cloudinaryResult.publicId;
+          fileData.cloudinaryAssetId = cloudinaryResult.assetId;
+          fileData.resourceType = cloudinaryResult.resourceType;
+          fileData.deliveryType = cloudinaryResult.deliveryType;
+          fileData.format = cloudinaryResult.format;
           deleteLocalFile(file.path);
           logger.info('File uploaded to Cloudinary', { userId, documentType, publicId: cloudinaryResult.publicId });
         }
       } catch (error) {
+        if (isCloudinaryRequired()) throw error;
         logger.error('Cloudinary upload failed, using local storage', {
           userId,
           documentType,
@@ -84,7 +98,10 @@ class UploadService {
     let deleted = false;
 
     if (fileData.cloudinaryPublicId) {
-      deleted = await deleteFromCloudinary(fileData.cloudinaryPublicId);
+      deleted = await deleteFromCloudinary(fileData.cloudinaryPublicId, {
+        resourceType: fileData.resourceType,
+        deliveryType: fileData.deliveryType,
+      });
     }
 
     if (fileData.filePath && fs.existsSync(fileData.filePath)) {

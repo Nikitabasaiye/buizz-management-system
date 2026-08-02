@@ -14,7 +14,10 @@ const normalizeDocument = (doc) => ({
   url: String(doc.url || '').trim(),
   fileName: doc.fileName ? String(doc.fileName).trim() : null,
   publicId: doc.publicId ? String(doc.publicId).trim() : null,
+  assetId: doc.assetId ? String(doc.assetId).trim() : null,
   resourceType: doc.resourceType ? String(doc.resourceType).trim() : null,
+  deliveryType: doc.deliveryType ? String(doc.deliveryType).trim() : null,
+  format: doc.format ? String(doc.format).trim() : null,
   documentNumber: doc.documentNumber ? String(doc.documentNumber).trim() : null,
 });
 
@@ -175,7 +178,10 @@ class KycService {
       url: document.url,
       fileName: document.fileName,
       publicId: document.publicId,
+      assetId: document.assetId,
       resourceType: document.resourceType,
+      deliveryType: document.deliveryType,
+      format: document.format,
       documentNumber: document.documentNumber,
       uploadedAt: request.submitted_at,
     };
@@ -207,7 +213,15 @@ class KycService {
 
     // External URL (Cloudinary or other CDN) — starts with http and has no local path pattern
     if (document.url && document.url.startsWith('http')) {
-      return { cloudinaryUrl: document.url, fileName: filename };
+      return {
+        cloudinaryUrl: document.url,
+        fileName: filename,
+        publicId: document.publicId,
+        assetId: document.assetId,
+        resourceType: document.resourceType,
+        deliveryType: document.deliveryType,
+        format: document.format,
+      };
     }
 
     // Local file — url is a relative path like "pan/userId_pan_123.jpg"

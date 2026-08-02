@@ -1,63 +1,132 @@
-// ─── BullMQ / Redis queues disabled (no Redis available) ─────────────────────
-// const { Queue } = require('bullmq');
-// const { QUEUE_NAMES } = require('../constants');
-// const { createBookingConfirmedWorker } = require('./workers/bookingConfirmed.worker');
-// const { createWhatsAppWorker } = require('./workers/whatsapp.worker');
-// const { createPdfWorker } = require('./workers/pdf.worker');
+const { Queue } = require('bullmq');
+const { QUEUE_NAMES } = require('../constants');
+const logger = require('../utils/logger');
+const { createRedisConnection } = require('./redis-connection');
 
-// const connection = {
-//   host: process.env.REDIS_HOST || 'localhost',
-//   port: parseInt(process.env.REDIS_PORT || '6379'),
-//   password: process.env.REDIS_PASSWORD || undefined,
-//   maxRetriesPerRequest: null,
-// };
+const defaultJobOptions = {
+  attempts: Number(process.env.QUEUE_ATTEMPTS || 5),
+  backoff: {
+    type: 'exponential',
+    delay: Number(process.env.QUEUE_BACKOFF_MS || 5000),
+  },
+  removeOnComplete: {
+    count: Number(process.env.QUEUE_COMPLETED_RETENTION_COUNT || 1000),
+    age: Number(process.env.QUEUE_COMPLETED_RETENTION_SECONDS || 86400),
+  },
+  removeOnFail: {
+    count: Number(process.env.QUEUE_FAILED_RETENTION_COUNT || 5000),
+    age: Number(process.env.QUEUE_FAILED_RETENTION_SECONDS || 1209600),
+  },
+};
 
-// const defaultJobOptions = {
-//   attempts: 3,
-//   backoff: { type: 'exponential', delay: 5000 },
-//   removeOnComplete: { count: 200, age: 24 * 3600 },
-//   removeOnFail: { count: 100, age: 7 * 24 * 3600 },
-// };
+const redisDisabled = process.env.REDIS_DISABLED === 'true'
+  || process.env.DISABLE_REDIS === 'true'
+  || process.env.QUEUE_PROVIDER === 'disabled';
 
-// const bookingConfirmedQueue = new Queue(QUEUE_NAMES.BOOKING_CONFIRMED, { connection, defaultJobOptions });
-// const whatsappQueue        = new Queue(QUEUE_NAMES.WHATSAPP,          { connection, defaultJobOptions });
-// const pdfQueue             = new Queue(QUEUE_NAMES.PDF_GENERATION,    { connection, defaultJobOptions });
-// const emailQueue           = new Queue(QUEUE_NAMES.EMAIL,             { connection, defaultJobOptions });
-// const notificationQueue    = new Queue(QUEUE_NAMES.NOTIFICATION,      { connection, defaultJobOptions });
+class DisabledQueue {
+  constructor(name) {
+    this.name = name;
+  }
 
-// let workers = [];
+  async add() {
+    throw new Error(`Queue "${this.name}" is unavailable because Redis/Valkey is disabled`);
+  }
 
-// const initializeQueues = async () => {
-//   workers = [
-//     createBookingConfirmedWorker(connection),
-//     createWhatsAppWorker(connection),
-//     createPdfWorker(connection),
-//   ];
-// };
+  async getJobCounts() {
+    return { disabled: 1 };
+  }
 
-// const shutdownQueues = async () => {
-//   await Promise.all(workers.map((w) => w.close()));
-//   await Promise.all([
-//     bookingConfirmedQueue.close(),
-//     whatsappQueue.close(),
-//     pdfQueue.close(),
-//     emailQueue.close(),
-//     notificationQueue.close(),
-//   ]);
-// };
+  async close() {}
+}
 
-const initializeQueues = async () => {};
-const shutdownQueues  = async () => {};
+const producerConnection = redisDisabled ? null : createRedisConnection('producer');
+const createQueue = (name) => redisDisabled
+  ? new DisabledQueue(name)
+  : new Queue(name, {
+    connection: producerConnection,
+    defaultJobOptions,
+    prefix: process.env.BULLMQ_PREFIX || 'buizz',
+  });
 
-const bookingConfirmedQueue = null;
-const whatsappQueue        = null;
-const pdfQueue             = null;
-const emailQueue           = null;
-const notificationQueue    = null;
+const bookingConfirmedQueue = createQueue(QUEUE_NAMES.BOOKING_CONFIRMED);
+const whatsappQueue = createQueue(QUEUE_NAMES.WHATSAPP);
+const pdfQueue = createQueue(QUEUE_NAMES.PDF_GENERATION);
+const emailQueue = createQueue(QUEUE_NAMES.EMAIL);
+const notificationQueue = createQueue(QUEUE_NAMES.NOTIFICATION);
+
+let workers = [];
+
+const initializeWorkers = async () => {
+  if (redisDisabled) {
+    throw new Error('The worker process requires Redis/Valkey; set REDIS_DISABLED=false');
+  }
+  if (workers.length) return workers;
+
+  const { createBookingConfirmedWorker } = require('./workers/bookingConfirmed.worker');
+  const { createWhatsAppWorker } = require('./workers/whatsapp.worker');
+  const { createPdfWorker } = require('./workers/pdf.worker');
+  const { createEmailWorker } = require('./workers/email.worker');
+  const { createNotificationWorker } = require('./workers/notification.worker');
+
+  workers = [
+    createBookingConfirmedWorker(createRedisConnection('booking-worker')),
+    createWhatsAppWorker(createRedisConnection('whatsapp-worker')),
+    createPdfWorker(createRedisConnection('pdf-worker')),
+    createEmailWorker(createRedisConnection('email-worker')),
+    createNotificationWorker(createRedisConnection('notification-worker')),
+  ];
+
+  await Promise.all(workers.map((worker) => worker.waitUntilReady()));
+  logger.info('BullMQ workers are ready', { count: workers.length });
+  return workers;
+};
+
+const initializeQueues = initializeWorkers;
+
+const getQueueHealth = async () => {
+  const queueEntries = {
+    bookingConfirmed: bookingConfirmedQueue,
+    whatsapp: whatsappQueue,
+    pdf: pdfQueue,
+    email: emailQueue,
+    notification: notificationQueue,
+  };
+
+  const result = {};
+  for (const [name, queue] of Object.entries(queueEntries)) {
+    result[name] = await queue.getJobCounts(
+      'wait',
+      'active',
+      'delayed',
+      'completed',
+      'failed',
+      'paused',
+    );
+  }
+  return result;
+};
+
+const shutdownQueues = async () => {
+  await Promise.allSettled(workers.map((worker) => worker.close()));
+  workers = [];
+  await Promise.allSettled([
+    bookingConfirmedQueue.close(),
+    whatsappQueue.close(),
+    pdfQueue.close(),
+    emailQueue.close(),
+    notificationQueue.close(),
+  ]);
+  if (producerConnection) {
+    await producerConnection.quit().catch(() => producerConnection.disconnect());
+  }
+};
 
 module.exports = {
   initializeQueues,
+  initializeWorkers,
   shutdownQueues,
+  getQueueHealth,
+  producerConnection,
   bookingConfirmedQueue,
   whatsappQueue,
   pdfQueue,

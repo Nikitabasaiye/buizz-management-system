@@ -1,0 +1,40 @@
+name: Terraform production
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply the reviewed plan"
+        required: true
+        default: false
+        type: boolean
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  terraform:
+    environment: production-infrastructure
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="key=production/terraform.tfstate" -backend-config="region=${{ vars.AWS_REGION }}" -backend-config="use_lockfile=true" -backend-config="encrypt=true"
+      - run: terraform fmt -check -recursive
+      - run: terraform validate
+      - run: terraform plan -out=production.tfplan
+      - if: github.event_name == 'workflow_dispatch' && inputs.apply
+        run: terraform apply -auto-approve production.tfplan

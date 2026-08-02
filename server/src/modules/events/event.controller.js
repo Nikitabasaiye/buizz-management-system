@@ -139,6 +139,7 @@ const uploadEventImage = async (req, res, next) => {
           }
         });
       } catch (cloudinaryError) {
+        if (mediaService.isRequired()) throw cloudinaryError;
         // Cloudinary failed, fall back to local storage
         logger.warn('Cloudinary upload failed, falling back to local storage', {
           error: cloudinaryError.message,
@@ -177,6 +178,9 @@ const uploadEventImage = async (req, res, next) => {
         }
       }
     } else {
+      if (mediaService.isRequired()) {
+        throw new AppError('Media storage is temporarily unavailable', 503);
+      }
       // Fallback to local storage
       try {
         const fileData = await uploadService.processUpload(

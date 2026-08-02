@@ -13,16 +13,16 @@ const initializeConnections = async () => {
     const pool = await connectMySQL();
     if (pool) logger.info('MySQL connection established for Admin App');
   } catch (error) {
-    logger.error(
-      'Admin app database startup check failed. App is running, but DB-backed routes may fail until this is fixed:',
-      error
-    );
+    logger.error('Admin app database startup check failed', error);
+    throw error;
   }
 };
 
 const server = http.createServer(app);
 
 const startServer = async () => {
+  await initializeConnections();
+
   server.listen(PORT, () => {
     logger.info('Buizz Admin App started');
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -32,7 +32,6 @@ const startServer = async () => {
     logger.info('API: https://admin.buizz.com/api/v1');
   });
 
-  initializeConnections();
 };
 
 const gracefulShutdown = async (signal) => {

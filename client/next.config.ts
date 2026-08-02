@@ -19,12 +19,6 @@ const createNextConfig = (phase: string): NextConfig => ({
       },
     ],
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   pageExtensions: ["tsx", "ts", "jsx", "js"],
   async headers() {
     return [

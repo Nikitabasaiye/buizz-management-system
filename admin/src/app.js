@@ -146,9 +146,10 @@ app.get('/', (req, res) => {
 
 app.get('/health', (req, res) => {
   const database = getMySQLStatus();
+  const ready = database.connected && database.schemaReady;
 
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(ready ? 200 : 503).json({
+    status: ready ? 'OK' : 'NOT_READY',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     app: 'admin',

@@ -167,6 +167,7 @@ const processJob = async (job) => {
 const createBookingConfirmedWorker = (connection) => {
   const worker = new Worker(QUEUE_NAMES.BOOKING_CONFIRMED, processJob, {
     connection,
+    prefix: process.env.BULLMQ_PREFIX || 'buizz',
     concurrency: 10,
   });
 

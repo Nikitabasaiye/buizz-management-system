@@ -5,13 +5,20 @@ const { connectMySQL } = require('./src/database/mysql');
 // const { connectRedis } = require('./src/database/redis');
 const logger = require('./src/utils/logger');
 const { initializeSocket } = require('./src/sockets');
+const mediaService = require('./src/services/media.service');
 
 
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
-    // Start Express Server
+    if (mediaService.isRequired()) {
+      await mediaService.verifyConnection();
+      logger.info('Required Cloudinary media storage verified');
+    }
+    await connectMySQL();
+
+    // Open the port only after production dependencies are ready.
     const server = app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
       // Development URL (comment out for production)
@@ -19,18 +26,6 @@ const startServer = async () => {
       // Production URL
       logger.info(`Server URL: https://api.buizz.com`);
     });
-
-    connectMySQL()
-      .then((pool) => {
-        if (pool) logger.info('MySQL startup check completed successfully');
-      })
-      .catch((error) => {
-        logger.error('MySQL startup check failed. API is running, but DB-backed routes will fail until this is fixed:', error);
-      });
-
-    // Connect to Redis
-    // await connectRedis();
-    // logger.info('Redis connected successfully');
 
     // Initialize Socket.io
     initializeSocket(server);
