@@ -27,6 +27,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.IMAGE_TAG }}
+          - name: Debug variables
+  run: |
+    echo "Repository: ${{ github.repository }}"
+    echo "Event: ${{ github.event_name }}"
+    echo "Ref: ${{ github.ref }}"
+    echo "Environment: production"
+    echo "AWS Region: ${{ vars.AWS_REGION }}"
+    echo "Role ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}"
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
