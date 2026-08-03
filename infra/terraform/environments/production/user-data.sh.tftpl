@@ -5,11 +5,13 @@ for attempt in 1 2 3 4 5; do
   if dnf install -y docker git jq curl; then
     break
   fi
+  # if [ "${attempt}" -eq 5 ]; then
   if [ "${attempt}" -eq 5 ]; then
     echo "Package installation failed after five attempts" >&2
     exit 1
   fi
-  sleep $((attempt * 15))
+  # sleep $((attempt * 15))
+  sleep $$((attempt * 15))
 done
 
 systemctl enable --now docker
