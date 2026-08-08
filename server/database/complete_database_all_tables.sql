@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS seat_map_templates (
   name VARCHAR(100) NOT NULL,
   description TEXT NULL,
   layout JSON NULL,
-  rows INT UNSIGNED NOT NULL,
+  `rows` INT UNSIGNED NOT NULL,
   columns INT UNSIGNED NOT NULL,
   seat_types JSON NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,

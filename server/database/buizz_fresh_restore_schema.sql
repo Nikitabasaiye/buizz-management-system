@@ -84,8 +84,24 @@ CREATE TABLE IF NOT EXISTS organizations (
   CONSTRAINT fk_organizations_owner FOREIGN KEY (owner_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE users
-  ADD CONSTRAINT fk_users_organization FOREIGN KEY (organization_id) REFERENCES organizations(org_id) ON DELETE SET NULL;
+-- The schema can be rerun after an interrupted restore. MySQL does not support
+-- ADD CONSTRAINT IF NOT EXISTS, so add this foreign key only when it is absent.
+SET @users_organization_fk_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.table_constraints
+  WHERE constraint_schema = DATABASE()
+    AND table_name = 'users'
+    AND constraint_name = 'fk_users_organization'
+    AND constraint_type = 'FOREIGN KEY'
+);
+SET @users_organization_fk_sql := IF(
+  @users_organization_fk_exists = 0,
+  'ALTER TABLE users ADD CONSTRAINT fk_users_organization FOREIGN KEY (organization_id) REFERENCES organizations(org_id) ON DELETE SET NULL',
+  'SELECT 1'
+);
+PREPARE users_organization_fk_stmt FROM @users_organization_fk_sql;
+EXECUTE users_organization_fk_stmt;
+DEALLOCATE PREPARE users_organization_fk_stmt;
 
 CREATE TABLE IF NOT EXISTS organization_members (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -104,7 +120,7 @@ CREATE TABLE IF NOT EXISTS seat_map_templates (
   name VARCHAR(100) NOT NULL,
   description TEXT NULL,
   layout JSON NULL,
-  rows INT UNSIGNED NOT NULL,
+  `rows` INT UNSIGNED NOT NULL,
   columns INT UNSIGNED NOT NULL,
   seat_types JSON NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,

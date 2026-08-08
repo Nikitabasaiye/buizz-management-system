@@ -17,7 +17,7 @@ const createSeatMapTemplate = async (templateData) => {
   }
   
   const [result] = await pool.execute(
-    `INSERT INTO seat_map_templates (name, description, layout, rows, columns, seat_types, is_active)
+    `INSERT INTO seat_map_templates (name, description, layout, \`rows\`, columns, seat_types, is_active)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [name, description || null, JSON.stringify(layout), rows, columns, JSON.stringify(seat_types), is_active ? 1 : 0]
   );
@@ -74,7 +74,7 @@ const updateSeatMapTemplate = async (id, updateData) => {
   if (updateData.seat_types !== undefined) updateFields.seat_types = JSON.stringify(updateData.seat_types);
   if (updateData.is_active !== undefined) updateFields.is_active = updateData.is_active ? 1 : 0;
   
-  const setClause = Object.keys(updateFields).map(k => `${k} = ?`).join(', ');
+  const setClause = Object.keys(updateFields).map(k => `\`${k}\` = ?`).join(', ');
   const values = [...Object.values(updateFields), id];
   
   await pool.execute(`UPDATE seat_map_templates SET ${setClause} WHERE id = ?`, values);

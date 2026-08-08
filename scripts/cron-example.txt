@@ -1,0 +1,7 @@
+# Cron example: run maintenance daily at 03:00 and log output
+# Copy to root's crontab: `sudo crontab -e` and add the line below
+
+0 3 * * * /opt/buizz/scripts/maintenance.sh >> /var/log/buizz/maintenance.log 2>&1
+
+# Or to run every Sunday at 4am per-user (edit with `crontab -e`):
+# 0 4 * * 0 /home/ubuntu/buizz/scripts/maintenance.sh >> /home/ubuntu/buizz/logs/maintenance.log 2>&1

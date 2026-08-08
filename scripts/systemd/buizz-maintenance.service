@@ -1,0 +1,13 @@
+[Unit]
+Description=Buizz maintenance runner
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/buizz/scripts/maintenance.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

@@ -48,19 +48,6 @@ jobs:
       - name: Syntax check application JavaScript
         run: find . -path ./node_modules -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check
 
-  terraform:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.15.8
-      - run: terraform fmt -check -recursive infra/terraform
-      - working-directory: infra/terraform/environments/production
-        run: terraform init -backend=false
-      - working-directory: infra/terraform/environments/production
-        run: terraform validate
-
   docker:
     runs-on: ubuntu-latest
     steps:

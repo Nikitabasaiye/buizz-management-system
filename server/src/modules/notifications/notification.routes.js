@@ -4,6 +4,8 @@ const notificationService = require('./notification.service');
 const { AppError } = require('../../middleware/errorHandler');
 
 const router = express.Router();
+const deliveryController = require('./notification.controller');
+
 
 // Get user notifications
 router.get('/', authenticate, async (req, res, next) => {
@@ -74,6 +76,12 @@ router.get('/unread/count', authenticate, async (req, res, next) => {
     next(error);
   }
 });
+
+// Delivery endpoints (OTP and webhooks)
+router.post('/send-otp', deliveryController.sendOTP);
+router.post('/verify-otp', deliveryController.verifyOTP);
+// Payment gateway webhook to trigger ticket generation and notifications
+router.post('/payment-webhook', deliveryController.paymentWebhook);
 
 // Error handler middleware
 function next(error) {

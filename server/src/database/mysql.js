@@ -218,6 +218,44 @@ const initializeSchema = async () => {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  // user_otps: persist OTPs with purpose, expiry and audit
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_otps (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NULL,
+      phone VARCHAR(80) NULL,
+      email VARCHAR(255) NULL,
+      otp VARCHAR(10) NOT NULL,
+      purpose VARCHAR(60) NOT NULL DEFAULT 'login',
+      expires_at DATETIME NOT NULL,
+      verified_at DATETIME NULL,
+      attempts INT UNSIGNED NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY user_otps_lookup_index (phone, email, purpose, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  // notification_logs: audit of notification sends
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notification_logs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      booking_id BIGINT UNSIGNED NULL,
+      type VARCHAR(60) NOT NULL,
+      provider VARCHAR(60) NOT NULL,
+      recipient VARCHAR(255) NOT NULL,
+      status ENUM('pending','sent','failed') NOT NULL DEFAULT 'pending',
+      message_id VARCHAR(255) NULL,
+      retry_count INT UNSIGNED NOT NULL DEFAULT 0,
+      error TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY notification_logs_booking_index (booking_id),
+      KEY notification_logs_recipient_index (recipient)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
   // ── organizations ────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS organizations (
@@ -880,4 +918,46 @@ const execute = (...args) => requirePool().execute(...args);
 const query = (...args) => requirePool().query(...args);
 const getConnection = (...args) => requirePool().getConnection(...args);
 
-module.exports = { connectMySQL, getMySQLPool, getMySQLStatus, execute, query, getConnection };
+// ── Notification / OTP helpers
+async function createNotificationLog({ booking_id = null, type, provider, recipient, status = 'pending', message_id = null, retry_count = 0, error = null }) {
+  const sql = `INSERT INTO notification_logs (booking_id, type, provider, recipient, status, message_id, retry_count, error, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
+  const params = [booking_id, type, provider, recipient, status, message_id, retry_count, error];
+  const [res] = await requirePool().execute(sql, params);
+  return res.insertId || null;
+}
+
+async function updateNotificationLog(id, { status, message_id = null, retry_count = null, error = null }) {
+  const updates = [];
+  const params = [];
+  if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+  if (message_id !== undefined) { updates.push('message_id = ?'); params.push(message_id); }
+  if (retry_count !== null) { updates.push('retry_count = ?'); params.push(retry_count); }
+  if (error !== null) { updates.push('error = ?'); params.push(error); }
+  if (updates.length === 0) return;
+  const sql = `UPDATE notification_logs SET ${updates.join(', ')} WHERE id = ?`;
+  params.push(id);
+  await requirePool().execute(sql, params);
+}
+
+async function insertOTP({ user_id = null, phone = null, email = null, otp, purpose = 'login', expires_at }) {
+  const sql = `INSERT INTO user_otps (user_id, phone, email, otp, purpose, expires_at, attempts, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 0, NOW())`;
+  const params = [user_id, phone, email, otp, purpose, expires_at];
+  const [res] = await requirePool().execute(sql, params);
+  return res.insertId || null;
+}
+
+async function getLatestOTP({ phone = null, email = null, purpose = 'login' }) {
+  const sql = `SELECT * FROM user_otps WHERE ${phone ? 'phone = ?' : 'email = ?'} AND purpose = ? ORDER BY created_at DESC LIMIT 1`;
+  const params = phone ? [phone, purpose] : [email, purpose];
+  const [rows] = await requirePool().query(sql, params);
+  return rows[0] || null;
+}
+
+async function markOTPVerified(id) {
+  const sql = `UPDATE user_otps SET verified_at = NOW() WHERE id = ?`;
+  await requirePool().execute(sql, [id]);
+}
+
+module.exports = { connectMySQL, hasMysqlConfig, getMySQLPool, getMySQLStatus, execute, query, getConnection, createNotificationLog, updateNotificationLog, insertOTP, getLatestOTP, markOTPVerified };

@@ -1,0 +1,303 @@
+It is highly recommended to use a minimum Redis version of 6.2.0
+             Current: 5.0.14.1
+It is highly recommended to use a minimum Redis version of 6.2.0
+             Current: 5.0.14.1
+It is highly recommended to use a minimum Redis version of 6.2.0
+             Current: 5.0.14.1
+ReplyError: ERR Error running script (call to f_6c4c6de2bece2ad87657691d945d902df2198f5e): @user_script:215: @user_script: 215: -MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.   
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: {
+    name: 'evalsha',
+    args: [
+      '6c4c6de2bece2ad87657691d945d902df2198f5e',
+      '11',
+      'bull:notifications:wait',
+      'bull:notifications:active',
+      'bull:notifications:prioritized',
+      'bull:notifications:events',
+      'bull:notifications:stalled',
+      'bull:notifications:limiter',
+      'bull:notifications:delayed',
+      'bull:notifications:paused',
+      'bull:notifications:meta',
+      'bull:notifications:pc',
+      'bull:notifications:marker',
+      'bull:notifications:',
+      '1786122795645',
+      <Buffer de 00 04 a5 74 6f 6b 65 6e d9 28 63 30 66 62 66 30 34 61 2d 35 38 66 34 2d 34 30 31 34 2d 62 32 65 31 2d 64 35 38 36 65 34 31 35 62 36 65 33 3a 35 33 ... 32 more bytes>
+    ]
+  }
+}
+ReplyError: ERR Error running script (call to f_9cafb5464f1264634c440ee2e365936bafa909b6): @user_script:123: @user_script: 123: -MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.   
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: {
+    name: 'evalsha',
+    args: [
+      '9cafb5464f1264634c440ee2e365936bafa909b6',
+      '9',
+      'bull:notifications:stalled',
+      'bull:notifications:wait',
+      'bull:notifications:active',
+      'bull:notifications:stalled-check',
+      'bull:notifications:meta',
+      'bull:notifications:paused',
+      'bull:notifications:marker',
+      'bull:notifications:events',
+      'bull:notifications:repeat',
+      '1',
+      'bull:notifications:',
+      '1786122795646',
+      '30000'
+    ]
+  }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '5' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: ERR Error running script (call to f_6c4c6de2bece2ad87657691d945d902df2198f5e): @user_script:215: @user_script: 215: -MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.   
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: {
+    name: 'evalsha',
+    args: [
+      '6c4c6de2bece2ad87657691d945d902df2198f5e',
+      '11',
+      'bull:notifications:wait',
+      'bull:notifications:active',
+      'bull:notifications:prioritized',
+      'bull:notifications:events',
+      'bull:notifications:stalled',
+      'bull:notifications:limiter',
+      'bull:notifications:delayed',
+      'bull:notifications:paused',
+      'bull:notifications:meta',
+      'bull:notifications:pc',
+      'bull:notifications:marker',
+      'bull:notifications:',
+      '1786177226432',
+      <Buffer de 00 04 a5 74 6f 6b 65 6e d9 29 63 30 66 62 66 30 34 61 2d 35 38 66 34 2d 34 30 31 34 2d 62 32 65 31 2d 64 35 38 36 65 34 31 35 62 36 65 33 3a 31 34 ... 33 more bytes>
+    ]
+  }
+}
+ReplyError: ERR Error running script (call to f_9cafb5464f1264634c440ee2e365936bafa909b6): @user_script:123: @user_script: 123: -MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.   
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: {
+    name: 'evalsha',
+    args: [
+      '9cafb5464f1264634c440ee2e365936bafa909b6',
+      '9',
+      'bull:notifications:stalled',
+      'bull:notifications:wait',
+      'bull:notifications:active',
+      'bull:notifications:stalled-check',
+      'bull:notifications:meta',
+      'bull:notifications:paused',
+      'bull:notifications:marker',
+      'bull:notifications:events',
+      'bull:notifications:repeat',
+      '1',
+      'bull:notifications:',
+      '1786177226434',
+      '30000'
+    ]
+  }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '5' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: ERR Error running script (call to f_6c4c6de2bece2ad87657691d945d902df2198f5e): @user_script:215: @user_script: 215: -MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.   
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: {
+    name: 'evalsha',
+    args: [
+      '6c4c6de2bece2ad87657691d945d902df2198f5e',
+      '11',
+      'bull:notifications:wait',
+      'bull:notifications:active',
+      'bull:notifications:prioritized',
+      'bull:notifications:events',
+      'bull:notifications:stalled',
+      'bull:notifications:limiter',
+      'bull:notifications:delayed',
+      'bull:notifications:paused',
+      'bull:notifications:meta',
+      'bull:notifications:pc',
+      'bull:notifications:marker',
+      'bull:notifications:',
+      '1786209449695',
+      <Buffer de 00 04 a5 74 6f 6b 65 6e d9 29 63 30 66 62 66 30 34 61 2d 35 38 66 34 2d 34 30 31 34 2d 62 32 65 31 2d 64 35 38 36 65 34 31 35 62 36 65 33 3a 31 38 ... 33 more bytes>
+    ]
+  }
+}
+ReplyError: ERR Error running script (call to f_9cafb5464f1264634c440ee2e365936bafa909b6): @user_script:123: @user_script: 123: -MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.   
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: {
+    name: 'evalsha',
+    args: [
+      '9cafb5464f1264634c440ee2e365936bafa909b6',
+      '9',
+      'bull:notifications:stalled',
+      'bull:notifications:wait',
+      'bull:notifications:active',
+      'bull:notifications:stalled-check',
+      'bull:notifications:meta',
+      'bull:notifications:paused',
+      'bull:notifications:marker',
+      'bull:notifications:events',
+      'bull:notifications:repeat',
+      '1',
+      'bull:notifications:',
+      '1786209449695',
+      '30000'
+    ]
+  }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '5' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}
+ReplyError: MISCONF Redis is configured to save RDB snapshots, but it is currently not able to persist on disk. Commands that may modify the data set are disabled, because this instance is configured to report errors during writes if RDB snapshotting fails (stop-writes-on-bgsave-error option). Please check the Redis logs for details about the RDB error.
+    at parseError (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:179:12)
+    at parseType (D:\buizz_management_system\server\node_modules\redis-parser\lib\parser.js:302:14) {
+  command: { name: 'bzpopmin', args: [ 'bull:notifications:marker', '10' ] }
+}

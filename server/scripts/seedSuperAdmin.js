@@ -3,17 +3,18 @@
  * Run once: node scripts/seedSuperAdmin.js
  */
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
 
 const {
-  MYSQL_HOST = 'localhost',
-  MYSQL_PORT = 3306,
-  MYSQL_USER = 'root',
-  MYSQL_PASSWORD = '',
-  MYSQL_DATABASE = 'buizz_management',
-  SUPER_ADMIN_NAME = 'Super Admin',
+  MYSQL_HOST,
+  MYSQL_PORT,
+  MYSQL_USER,
+  MYSQL_PASSWORD,
+  MYSQL_DATABASE,
+  SUPER_ADMIN_NAME,
   SUPER_ADMIN_EMAIL,
   SUPER_ADMIN_PASSWORD,
 } = process.env;
@@ -25,8 +26,20 @@ const SUPER_ADMIN = {
 };
 
 async function seed() {
-  if (!SUPER_ADMIN.email || !SUPER_ADMIN.password) {
-    throw new Error('Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD in the environment before running this seed.');
+  const required = [
+    'MYSQL_HOST',
+    'MYSQL_PORT',
+    'MYSQL_USER',
+    'MYSQL_PASSWORD',
+    'MYSQL_DATABASE',
+    'SUPER_ADMIN_NAME',
+    'SUPER_ADMIN_EMAIL',
+    'SUPER_ADMIN_PASSWORD',
+  ];
+  const missing = required.filter((key) => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
   const connection = await mysql.createConnection({
