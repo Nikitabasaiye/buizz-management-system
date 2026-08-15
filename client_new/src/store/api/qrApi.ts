@@ -30,7 +30,7 @@ interface EventDetails {
 interface ScanResponse {
   success: boolean;
   message: string;
-  data: any;
+  data: unknown;
 }
 
 interface TicketDetailsResponse {
@@ -43,7 +43,7 @@ interface TicketDetailsResponse {
 
 export const qrApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    scanTicket: builder.mutation<ScanResponse, ScanTicketRequest>({
+    scanQrTicket: builder.mutation<ScanResponse, ScanTicketRequest>({
       query: (data) => ({
         url: '/qr/scan',
         method: 'POST',
@@ -59,7 +59,7 @@ export const qrApi = baseApi.injectEndpoints({
 });
 
 export const {
-  useScanTicketMutation,
+  useScanQrTicketMutation,
   useGetTicketDetailsQuery,
   useLazyGetTicketDetailsQuery,
 } = qrApi;

@@ -45,7 +45,7 @@ interface OfflineBookingResponse {
 interface OfflineBookingListResponse {
   status: string;
   data: {
-    bookings: any[];
+    bookings: unknown[];
     page: number;
     limit: number;
   };

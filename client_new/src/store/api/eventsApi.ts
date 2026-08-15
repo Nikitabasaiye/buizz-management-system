@@ -64,9 +64,9 @@ interface GetEventsParams {
 export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getEvents: builder.query<EventsResponse, GetEventsParams | void>({
-      query: (params = {}) => ({
+      query: (params) => ({
         url: '/events',
-        params,
+        params: params ?? {},
       }),
       providesTags: ['Events'],
     }),

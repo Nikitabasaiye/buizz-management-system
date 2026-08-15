@@ -54,7 +54,7 @@ export const bookingsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Bookings', 'Payments'],
     }),
-    verifyPayment: builder.query<BookingResponse, string>({
+    verifyBookingPayment: builder.query<BookingResponse, string>({
       query: (orderId) => `/bookings/verify/${orderId}`,
       providesTags: (result, error, orderId) => [{ type: 'Bookings', id: orderId }],
     }),
@@ -68,7 +68,7 @@ export const bookingsApi = baseApi.injectEndpoints({
 export const {
   useGetUserBookingsQuery,
   useInitiateBookingMutation,
-  useVerifyPaymentQuery,
-  useLazyVerifyPaymentQuery,
+  useVerifyBookingPaymentQuery,
+  useLazyVerifyBookingPaymentQuery,
   useGetBookingDetailsQuery,
 } = bookingsApi;
